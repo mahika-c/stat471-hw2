@@ -30,7 +30,7 @@ knitr::opts_chunk$set(echo = FALSE, fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
 # check if you have ISLR package, if not, install it
 if(!require('pacman')) {install.packages('pacman')}
-pacman::p_load(ISLR, tidyverse, data.table) # add the packages needed!!!
+pacman::p_load(ISLR, tidyverse, data.table, magrittr) # add the packages needed!!!
 ```
 
 
@@ -138,13 +138,38 @@ The following 10 questions are answered as 1: strongly agree, 2: agree, 3: disag
 
 Load the data. Do a quick EDA to get familiar with the data set. Pay attention to the unit of each variable. Are there any missing values? 
 
+We saw that there were no rows with missing values. We also changed the datatypes appropriately: Gender, Job05,Imagazine, Inewspaper, and Ilibrary to factors. We also made sure to remove rows with negative Income87 or negative HeightFeet05.
+
 ```{r quick skim of the data}
-# temp <- read.csv('data/NLSY79.csv', header = T, stringsAsFactors = F)
+survey_data <- read.csv('data/NLSY79.csv', header = T, stringsAsFactors = F)
 # # missing values? real variables vs. factors? are variable values reasonable?
-# str(temp)
-# summary(temp)
-# levels(as.factor(temp$Job05))
-# table(as.factor(temp$Job05))
+str(survey_data)
+summary(survey_data)
+levels(as.factor(survey_data$Job05))
+table(as.factor(survey_data$Job05))
+
+# checking for rows with missing values
+rows_with_na <- (survey_data[apply(survey_data, 1, function(x) any(is.na(x))),])
+print(rows_with_na)
+# rows_with_na has 0 rows, indicating no missing values
+
+# change data types
+survey_data %<>%
+  mutate(Gender = as.factor(Gender)) %<>%
+  mutate(Job05 = as.factor(Job05)) %<>%
+  mutate(Imagazine = as.factor(Imagazine)) %<>%
+  mutate(Inewspaper = as.factor(Inewspaper)) %<>%
+  mutate(Ilibrary = as.factor(Ilibrary))
+
+# make sure we changed the types correctly
+str(survey_data)
+
+# get rid of rows with negative values
+survey_data <- survey_data %>% filter(Income87 > 0)
+survey_data <- survey_data %>% filter(HeightFeet05 > 0)
+
+# make sure that we filtered correctly
+summary(survey_data)
 ```
 
 
@@ -154,25 +179,127 @@ Let concentrate on Esteem scores evaluated in 87.
 
 0. First do a quick summary over all the `Esteem` variables. Pay attention to missing values, any peculiar numbers etc. How do you fix problems discovered if there is any? Briefly describe what you have done for the data preparation. 
 
+We extracted the columns that began with "Esteem87" and then ran summary stats for those columsn. We then checked for NA values; we saw that there are no missing values. For all Esteem87 columns, the min is 1 and the max is 4, which is expected. So there are no issues with these variables.
+
+```{r}
+# extracting only the part of survey_data for Esteem87
+esteem_cols <- grep("^Esteem87", names(survey_data), value = TRUE)
+esteem_df <- survey_data[esteem_cols]
+esteem_df
+summary(esteem_df)
+
+# checking for rows with missing values
+rows_with_na <- (esteem_df[apply(esteem_df, 1, function(x) any(is.na(x))),])
+print(rows_with_na)
+# rows_with_na has 0 rows, indicating no missing values
+```
+
+
 1. Please note that higher scores on Esteem questions 1, 2, 4, 6, and 7 indicate higher self-esteem, whereas higher scores on the remaining questions suggest lower self-esteem. To maintain consistency, consider reversing the scores of certain Esteem questions. For example, if the esteem data is stored in `data.esteem`, you can use the code `data.esteem[, c(1, 2, 4, 6, 7)] <- 5 - data.esteem[, c(1, 2, 4, 6, 7)]` to invert the scores.
+
+Now, for all Esteem87 columns, a lower score implies higher self esteem.
+
+```{r}
+esteem_columns <- grep("^Esteem87_(1|2|4|6|7)$", names(esteem_df), value = TRUE)
+esteem_df[, c(esteem_columns)] <- 5 - esteem_df[, c(esteem_columns)]
+summary(esteem_df)
+```
+
 
 2. Write a brief summary with necessary plots about the 10 esteem measurements.
 
+Esteem87_1 through Esteem87_5 all have a median of 4. And the rest have a median of 3. They all have a min of 1 and a max of 4. The mean valyes are in the summary below. We created a histogram for all 10 measurements.
+
+```{r}
+summary(esteem_df)
+
+# Reshape the data to long format
+esteem_long <- pivot_longer(esteem_df, cols = starts_with("Esteem87_"), names_to = "Esteem", values_to = "Value")
+
+# Create the histograms
+ggplot(esteem_long, aes(x = Value)) + 
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") + 
+  facet_wrap(~ Esteem, scales = "free") +
+  theme_minimal() +
+  labs(x = "Score", y = "Frequency", title = "Histograms of Esteem87 Columns")
+```
+
+
 3. Do esteem scores all positively correlated? Report the pairwise correlation table and write a brief summary.
+
+From the pairwise correlation table, all scores are positively correlated. This implies that for all scores, one score increasing is correlated to another score increasing. The same goes if they are both decreasing.
+
+```{r}
+cor(esteem_df)
+```
+
 
 4. PCA on 10 esteem measurements. (centered but no scaling)
 
     a) Report the PC1 and PC2 loadings. Are they unit vectors? Are they orthogonal? 
+    
+We extracted the first two columns from the rotation part of prcomp to get PC1 and PC2 loadings. We then checked if they are unit vectors by checking their lengths. They are both length of 1, so they are unit vectors. The dot product of the two columns is very close to 0, so they are considered to be orthogonal.
+    
+```{r}
+# get the loadings for pc 1 and pc2
+pca <- prcomp(esteem_df, scale=FALSE, center=T)
+pc1_2 <- pca$rotation[,c(1,2)]
+pc1_2
+
+# check if they are unit vectors
+norms <- apply(pca$rotation[,c(1,2)], 2, function(x) sqrt(sum(x^2)))
+norms
+
+# check if the loadings are orthogonal
+dot_product <- sum(pc1_2[,c(1)] * pc1_2[,c(2)])
+dot_product
+```
+    
   
     b) Are there good interpretations for PC1 and PC2? (If loadings are all negative, take the positive loadings for the ease of interpretation)
+
+PC1 is the weighted sum of all Esteem87 values since all loadings are positive. PC2 represents ((the weighted sum of Esteem87_8 through Esteem87_10) - (the weighted sum of Esteem87_1 through Esteem87_7)) since Esteem87_8 through Esteem87_10 loadings are positive and the others' loadings are negative.
+    
+```{r}
+pc1_2
+```
+    
   
     c) How is the PC1 score obtained for each subject? Write down the formula.
     
+PC1 = (Esteem87_1 * 0.229) + (Esteem87_2 * 0.240) + (Esteem87_3 * 0.280) + (Esteem87_4 * 0.254) + (Esteem87_5 * 0.307) + (Esteem87_6 * 0.317) + (Esteem87_7 * 0.300) + (Esteem87_8 * 0.396) + (Esteem87_9 *   0.400) + (Esteem87_10 * 0.381)
+    
     d) Are PC1 scores and PC2 scores in the data uncorrelated? 
+    
+Yes, they are uncorrelated. In the x section of prcomp, we ran a correlation table. We found that the cor between PC1 and PC2 scores is near 0 (7.58e-16), meaning they are uncorrelated.
+    
+```{r}
+cor(pca$x)
+```
+    
     
     e) Plot PVE (Proportion of Variance Explained) and summarize the plot. 
   
+  By plotting the PVE for each PC, we see that the PVEs exponentially decrease as the PCs increase, with the elbow at PC2. We can only consider PC1 and PC2 to capture the majority of the data in 2 dimensions.
+    
+```{r}
+pve <- summary(pca)$importance[2,1:10]
+pve_df <- data.frame(pve)
+pve_df
+plot(summary(pca)$importance[2,],
+    ylab="PVE", 
+    xlab="Number of PCs",
+    pch = 16, 
+    main="Scree Plot of PVE for scores")
+```
+    
+  
     f) Also plot CPVE (Cumulative Proportion of Variance Explained). What proportion of the variance in the data is explained by the first two principal components?
+    
+```{r}
+
+```
+    
   
     g) PC’s provide us with a low dimensional view of the self-esteem scores. Use a biplot with the first two PC's to display the data.  Give an interpretation of PC1 and PC2 from the plot. (try `ggbiplot` if you could, much prettier!)
 
