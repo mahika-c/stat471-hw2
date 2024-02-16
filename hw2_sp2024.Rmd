@@ -30,7 +30,7 @@ knitr::opts_chunk$set(echo = FALSE, fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
 # check if you have ISLR package, if not, install it
 if(!require('pacman')) {install.packages('pacman')}
-pacman::p_load(ISLR, tidyverse, data.table, magrittr) # add the packages needed!!!
+pacman::p_load(ISLR, tidyverse, data.table, magrittr, ggbiplot) # add the packages needed!!!
 ```
 
 
@@ -296,20 +296,100 @@ plot(summary(pca)$importance[2,],
   
     f) Also plot CPVE (Cumulative Proportion of Variance Explained). What proportion of the variance in the data is explained by the first two principal components?
     
+  About 60% of the variance is explained by the first two principal components.
+    
 ```{r}
+# calculate the explained variance
+var_explained <- pca$sdev^2
+prop_var_explained <- var_explained / sum(var_explained)
+
+# running total of the variances
+cpve <- cumsum(prop_var_explained)
+cpve_df <- data.frame(PC = 1:length(cpve), CPVE = cpve)
+
+# plot the cumulative explained variance
+ggplot(cpve_df, aes(x = PC, y = CPVE)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 1:length(cpve)) +
+  ylab("Cumulative Proportion of Variance Explained") +
+  xlab("Principal Component") +
+  ggtitle("Cumulative Proportion of Variance Explained by PCA Components")
 
 ```
     
   
     g) PC’s provide us with a low dimensional view of the self-esteem scores. Use a biplot with the first two PC's to display the data.  Give an interpretation of PC1 and PC2 from the plot. (try `ggbiplot` if you could, much prettier!)
 
+PC2 splits the variables into two groups, one with Esteem87_8, 9, 10 and one with the rest; this indicates that there is a group of questions that is negatively correlated with PC2 and one that is positively correlated. PC1 is highly correlated with all esteem questions.
+
+```{r}
+ggbiplot(pca, obs.scale = 1, var.scale = 1,
+  groups = NULL, ellipse = TRUE, circle = TRUE) +
+  scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', legend.position = 'top')
+```
+
+
 5. Apply k-means to cluster subjects on the original esteem scores
 
     a) Find a reasonable number of clusters using within sum of squared with elbow rules.
+```{r}
+scaled_data <- scale(esteem_df)
+
+# elbow method
+wss <- sapply(1:10, function(k) sum(kmeans(scaled_data, centers = k)$withinss))
+plot(1:10, wss, type = "b", xlab = "Number of clusters", ylab = "Within groups sum of squares")
+
+# clustering with the k=3 choice from WCSS plot
+k <- 3
+kmeans_result <- kmeans(scaled_data, centers = k)
+
+
+clustered_df <- cbind(esteem_df, cluster = kmeans_result$cluster)
+print(kmeans_result$centers)
+```
+
     
     b) Can you summarize common features within each cluster?
-    
+
+For each cluster we found the average esteem question response (among each of the 10 questions) and then plotted a heatmap with the resulting data. We can observe that cluster 3 contains people that responded highly to most of the esteem questions, followed by those in cluster 1, and finally those in cluster 2 with the lowest average ratings. Thus, it seems that clusters 3 and 1 contains people with relatively low self-esteem, and cluster 2 contains high self-esteem respondents.
+
+```{r}
+cluster_means <- aggregate(. ~ cluster, data = clustered_df, mean)
+cluster_means
+
+clustered_df_melted <- melt(data.table(clustered_df), id.vars = 'cluster')
+ggplot(clustered_df_melted, aes(variable, cluster)) + 
+  geom_tile(aes(fill = value), colour = "white") + 
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
     c) Can you visualize the clusters with somewhat clear boundaries? You may try different pairs of variables and different PC pairs of the esteem scores.
+    
+Using the two variables with the most drastic between-cluster color differencefrom the heatmap above, we can see a low-resolution separation between the three clusters in our first plot. Using the two principal components with the most explained variance, we see a higher resolution visualization of the three clusters (though without clear boundaries).
+    
+```{r}
+# plotting the clusters using the two most differentiated variables
+ggplot(clustered_df, aes(x = Esteem87_3, y = Esteem87_10, color = as.factor(cluster))) +
+  geom_point() + 
+  labs(x = "Esteem87_3", y = "Esteem87_10", color = "Cluster") +
+  theme_minimal()
+
+
+# creating a dataframe with PCs and cluster assignments
+pca_points <- as.data.frame(pca$x[,c(1, 2)])
+pca_points$cluster <- clustered_df$cluster
+
+# plotting the clusters using PCs
+ggplot(pca_points, aes(x = PC1, y = PC2, color = as.factor(cluster))) +
+  geom_point() + 
+  labs(x = "PCA1", y = "PCA2", color = "Cluster") +
+  theme_minimal()
+```
+
 
 
 6. We now try to find out what factors are related to self-esteem? PC1 of all the Esteem scores is a good variable to summarize one's esteem scores. We take PC1 as our response variable. 
