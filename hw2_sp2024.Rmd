@@ -261,6 +261,7 @@ dot_product
 PC1 is the weighted sum of all Esteem87 values since all loadings are positive. PC2 represents ((the weighted sum of Esteem87_8 through Esteem87_10) - (the weighted sum of Esteem87_1 through Esteem87_7)) since Esteem87_8 through Esteem87_10 loadings are positive and the others' loadings are negative.
     
 ```{r}
+# printing the loadings for PC1 and PC2
 pc1_2
 ```
     
@@ -274,6 +275,7 @@ PC1 = (Esteem87_1 * 0.229) + (Esteem87_2 * 0.240) + (Esteem87_3 * 0.280) + (Este
 Yes, they are uncorrelated. In the x section of prcomp, we ran a correlation table. We found that the cor between PC1 and PC2 scores is near 0 (7.58e-16), meaning they are uncorrelated.
     
 ```{r}
+# find correlation between PCs
 cor(pca$x)
 ```
     
@@ -283,9 +285,11 @@ cor(pca$x)
   By plotting the PVE for each PC, we see that the PVEs exponentially decrease as the PCs increase, with the elbow at PC2. We can only consider PC1 and PC2 to capture the majority of the data in 2 dimensions.
     
 ```{r}
+# plotting PVE plot
 pve <- summary(pca)$importance[2,1:10]
 pve_df <- data.frame(pve)
 pve_df
+# creating visual for PVE plot to find elbow
 plot(summary(pca)$importance[2,],
     ylab="PVE", 
     xlab="Number of PCs",
@@ -296,7 +300,7 @@ plot(summary(pca)$importance[2,],
   
     f) Also plot CPVE (Cumulative Proportion of Variance Explained). What proportion of the variance in the data is explained by the first two principal components?
     
-  About 60% of the variance is explained by the first two principal components.
+  About 60% of the variance is explained by the first two principal components. (Note that the y-axis of this visualization doesn't start at 0).
     
 ```{r}
 # calculate the explained variance
@@ -324,6 +328,7 @@ ggplot(cpve_df, aes(x = PC, y = CPVE)) +
 PC2 splits the variables into two groups, one with Esteem87_8, 9, 10 and one with the rest; this indicates that there is a group of questions that is negatively correlated with PC2 and one that is positively correlated. PC1 is highly correlated with all esteem questions.
 
 ```{r}
+# printing biplot for the first two PCs
 ggbiplot(pca, obs.scale = 1, var.scale = 1,
   groups = NULL, ellipse = TRUE, circle = TRUE) +
   scale_color_discrete(name = '') +
@@ -334,7 +339,10 @@ ggbiplot(pca, obs.scale = 1, var.scale = 1,
 5. Apply k-means to cluster subjects on the original esteem scores
 
     a) Find a reasonable number of clusters using within sum of squared with elbow rules.
+    
+  We would say that the elbow in the data with regards to WSS can be seen at 3 clusters.
 ```{r}
+# scaling the data
 scaled_data <- scale(esteem_df)
 
 # elbow method
@@ -353,7 +361,7 @@ print(kmeans_result$centers)
     
     b) Can you summarize common features within each cluster?
 
-For each cluster we found the average esteem question response (among each of the 10 questions) and then plotted a heatmap with the resulting data. We can observe that cluster 3 contains people that responded highly to most of the esteem questions, followed by those in cluster 1, and finally those in cluster 2 with the lowest average ratings. Thus, it seems that clusters 3 and 1 contains people with relatively low self-esteem, and cluster 2 contains high self-esteem respondents.
+For each cluster we found the average esteem question response (among each of the 10 questions) and then plotted a heatmap with the resulting data. We can observe that cluster 3 contains people that responded highly to most of the esteem questions, followed by those in cluster 1, and finally those in cluster 2 with the lowest average ratings. Thus, it seems that clusters 3 and 1 contains people with relatively low self-esteem, and cluster 2 contains high self-esteem respondents. In particular, cluster 1 has high answer averages for questions 1, 2, 4, 6, and 7, whereas cluster 3 has higher average responses for 1, 2, 3, 5, and 7 thorugh 10.
 
 ```{r}
 cluster_means <- aggregate(. ~ cluster, data = clustered_df, mean)
@@ -369,7 +377,7 @@ ggplot(clustered_df_melted, aes(variable, cluster)) +
 
     c) Can you visualize the clusters with somewhat clear boundaries? You may try different pairs of variables and different PC pairs of the esteem scores.
     
-Using the two variables with the most drastic between-cluster color differencefrom the heatmap above, we can see a low-resolution separation between the three clusters in our first plot. Using the two principal components with the most explained variance, we see a higher resolution visualization of the three clusters (though without clear boundaries).
+Using the two variables with the most drastic between-cluster color difference from the heatmap above, we can see a low-resolution separation between the three clusters in our first plot. Using the two principal components with the most explained variance, we see a higher resolution visualization of the three clusters (though without clear boundaries). We can see that cluster 1 generally has the highest PC1 values, followed by cluster 3, then cluser 2. Among the PC2 values, we see that cluster 3 tends to have lower PC2 values. We also see that the red dots, cluster 1, seems to be more clumped have reduced within SS (less intra-cluster distance from its center), whereas cluster 2 seems to be more spread apart and have more intra-cluster distance from its center.
     
 ```{r}
 # plotting the clusters using the two most differentiated variables
