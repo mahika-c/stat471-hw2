@@ -405,14 +405,131 @@ ggplot(pca_points, aes(x = PC1, y = PC2, color = as.factor(cluster))) +
     a) Prepare possible factors/variables:
     
       - EDA the data set first. 
+      
+```{r}
+# printing the PC1 scores for each respondent
+pc1 <- as.data.frame(pca$x[,1])
+pc1
+
+# EDA the PC1 scores
+summary(pc1)
+
+# omit the Esteem columns from the data frame survey_data
+columns_to_keep <- !grepl("^Esteem", names(survey_data))
+survey_data_cleaned <- survey_data[, columns_to_keep]
+names(survey_data_cleaned)
+
+# merge the cleaned survey_data with the pc1 scores
+merged_df$Esteem_PC1 <- pc1[,1]
+merged_df <- merged_df[, !names(merged_df) %in% "pca$x[, 1]"]
+
+merged_df
+
+# EDA of the data set
+# see wee that the pc1 median is -0.06, the mean is 0, the min is -5.47, and the max is 1.92
+summary(merged_df)
+```
+  
 
       - Personal information: gender, education (05), log(income) in 87, job type in 87.  One way to summarize one's weight and height is via Body Mass Index which is defined as the body mass divided by the square of the body height, and is universally expressed in units of kg/m². Note, you need to create BMI first. Then may include it as one possible predictor. 
+      
+```{r}
+
+# we add the BMI column as follows:
+
+# convert Weight05 to kg
+merged_df$Weight05_kg <- merged_df$Weight05 * 0.453592
+
+# convert height to meters
+merged_df$Height_m <- (merged_df$HeightFeet05 * 0.3048) + (merged_df$HeightInch05 * 0.0254)  
+
+# compute BMI column
+merged_df$BMI <- merged_df$Weight05_kg / (merged_df$Height_m)^2
+
+# remove excess columns
+merged_df <- subset(merged_df, select = -c(Weight05_kg, Height_m))
+
+merged_df
+```
+
           
       - Household environment: Imagazine, Inewspaper, Ilibrary, MotherEd, FatherEd, FamilyIncome78. Do set indicators `Imagazine`, `Inewspaper` and `Ilibrary` as factors. 
+      
+```{r}
+# change data types
+merged_df %<>%
+  mutate(Imagazine = as.factor(Imagazine)) %<>%
+  mutate(Inewspaper = as.factor(Inewspaper)) %<>%
+  mutate(Ilibrary = as.factor(Ilibrary))
+
+str(merged_df)
+```
+
     
       - You may use PC1 of ASVAB as level of intelligence
+      
+```{r}
+# ASVAB columns
+columns_for_pc1 <- c("Coding", "Auto", "Mechanic", "Elec", "Science", "Math", "Arith", "Word", "Parag", "Number")
+
+# ASVAB intermediate df
+asvab_df <- merged_df[, columns_for_pc1]
+
+# find asvab pc1
+pca_asvab <- prcomp(asvab_df, scale=FALSE, center=T)
+pc1_asvab <- pca_asvab$x[,1]
+pc1_asvab
+
+pc1_asvab_df <- as.data.frame(pc1_asvab)
+summary(pc1_asvab_df)
+
+# create "Intelligence" column with these pc1 values
+merged_df$Intelligence <- pc1_asvab
+
+# display merged_df
+merged_df
+```
+
         
     b)   Run a few regression models between PC1 of all the esteem scores and suitable variables listed in a). Find a final best model with your **own clearly defined criterion**. 
+    
+    
+    Our intial thought is to do a multiple regression with the variables Intelligence, BMI, and Education05. The y variable is Esteem_PC1.
+```{r}
+
+# run regression with these variables
+fit1 <- lm(Esteem_PC1 ~ Education05, data = merged_df) 
+summary(fit1)
+
+# plot(fit1, 1)
+ggplot(merged_df, aes(x = Education05 , y = Esteem_PC1)) + 
+  geom_point() +
+  geom_smooth(method="lm",se=F) + 
+geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
+```
+```{r}
+# run regression with these variables
+fit1 <- lm(Esteem_PC1 ~ Intelligence, data = merged_df) 
+summary(fit1)
+
+# plot(fit1, 1)
+ggplot(merged_df, aes(x = Intelligence , y = Esteem_PC1)) + 
+  geom_point() +
+  geom_smooth(method="lm",se=F) + 
+geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
+```
+```{r}
+# run regression with these variables
+fit1 <- lm(Esteem_PC1 ~ BMI, data = merged_df) 
+summary(fit1)
+
+# plot(fit1, 1)
+ggplot(merged_df, aes(x = BMI , y = Esteem_PC1)) + 
+  geom_point() +
+  geom_smooth(method="lm",se=F) + 
+geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
+```
+
 
       - How did you land this model? Run a model diagnosis to see if the linear model assumptions are reasonably met. 
         
