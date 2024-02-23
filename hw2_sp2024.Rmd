@@ -420,9 +420,9 @@ survey_data_cleaned <- survey_data[, columns_to_keep]
 names(survey_data_cleaned)
 
 # merge the cleaned survey_data with the pc1 scores
+merged_df = cbind(survey_data_cleaned, pc1)
 merged_df$Esteem_PC1 <- pc1[,1]
 merged_df <- merged_df[, !names(merged_df) %in% "pca$x[, 1]"]
-
 merged_df
 
 # EDA of the data set
@@ -494,10 +494,10 @@ merged_df
     b)   Run a few regression models between PC1 of all the esteem scores and suitable variables listed in a). Find a final best model with your **own clearly defined criterion**. 
     
     
-    Our intial thought is to do a multiple regression with the variables Intelligence, BMI, and Education05. The y variable is Esteem_PC1.
+    Our intial thought is to find invidiual variables that have the largest effect on Esteem_PC1. We do individual regressions and find ones with the most significant B-values. 
 ```{r}
 
-# run regression with these variables
+# run regression with Education vs Esteem
 fit1 <- lm(Esteem_PC1 ~ Education05, data = merged_df) 
 summary(fit1)
 
@@ -508,34 +508,68 @@ ggplot(merged_df, aes(x = Education05 , y = Esteem_PC1)) +
 geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
 ```
 ```{r}
-# run regression with these variables
-fit1 <- lm(Esteem_PC1 ~ Intelligence, data = merged_df) 
-summary(fit1)
+# run regression with Intelligence vs Esteem
+fit2 <- lm(Esteem_PC1 ~ Intelligence, data = merged_df) 
+summary(fit2)
 
-# plot(fit1, 1)
+# plot(fit2, 1)
 ggplot(merged_df, aes(x = Intelligence , y = Esteem_PC1)) + 
   geom_point() +
   geom_smooth(method="lm",se=F) + 
 geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
 ```
 ```{r}
+# run regression with BMI vs esteem
+# remove the BMI outlier
+merged_df <- merged_df[merged_df$BMI <= 75, ]
 # run regression with these variables
-fit1 <- lm(Esteem_PC1 ~ BMI, data = merged_df) 
-summary(fit1)
+fit3 <- lm(Esteem_PC1 ~ BMI, data = merged_df) 
+summary(fit3)
 
-# plot(fit1, 1)
+# plot(fit3, 1)
 ggplot(merged_df, aes(x = BMI , y = Esteem_PC1)) + 
   geom_point() +
   geom_smooth(method="lm",se=F) + 
 geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
 ```
 
+We can see from above that that Education has the largest effect on esteem. The B-value for education has a p-value <2e-16 ***.
+
+We now want to run multiple regressions on two different sets of variables that could effect esteem: 1) household variables, and 2) personal variables.
+
+```{r}
+# run multiple regression with Household variables vs esteem
+fit4 <- lm(Esteem_PC1 ~ Imagazine + Inewspaper + Ilibrary + MotherEd + FatherEd + FamilyIncome78, data = merged_df) 
+summary(fit4)
+```
+We can see that Inewspaper1 and MotherEd have the lowest p-values from these variables. For this, we used an alpha cutoff os 0.01.
+
+```{r}
+# run multiple regression with personal variables vs esteem
+fit5 <- lm(Esteem_PC1 ~ Intelligence + Gender + Education05 + Income87 + Job05 + Income05 + BMI, data = merged_df) 
+summary(fit5)
+```
+We can see from above that Intelligence, Education05, Income87, and Income 05 have the lowest p-values among these variables. This indicates that these factors have the largest impact on Esteem_PC1. We used an alpha cutoff of 0.01. We did not include any job categories since their p-values across the categories vary so much.
 
       - How did you land this model? Run a model diagnosis to see if the linear model assumptions are reasonably met. 
-        
+We can combine the most signficant variables from both multiple regressions above: Inewspaper1 and MotherEd, along with Intelligence, Education05, Income87, and Income 05. We create a final multiple regression fit with these 6 variables:
+```{r}
+# run multiple regression with most impactful variables vs esteem
+fit6 <- lm(Esteem_PC1 ~ Inewspaper + MotherEd + Intelligence + Education05 + Income87 + Income05, data = merged_df) 
+summary(fit6)
+```
+We now test our linear model assumptions (linearity, equal variances/homoscedasticity, normality). Based on our residuals plot, there is a general spread across our values. There is a negative sloping line at the top, but the rest of the residuals are well-spread. In the Q-Q plot, we see the points generally fit a linear shape.
+```{r eval=T}
+par(mfrow=c(1,2), mar=c(5,2,4,2), mgp=c(3,0.5,0)) # plot(fit3) produces several plots
+plot(fit6, 1, pch=16) # residual plot
+abline(h=0, col="blue", lwd=2)
+plot(fit6, 2) # qqplot
+summary(fit6)
+```
+
       - Write a summary of your findings. In particular, explain what and how the variables in the model affect one's self-esteem. 
         
-
+Summary: We found from our multiple regression models that the variables with the lowest p-values, which had the highest impact on the Esteem_PC1 variable, were Intelligence, Education05, Income87, Income05, Inewspaper1, and MotherEd. We evaluated the p-values for each of these variables, which were derived using the f-statistic. We used an alpha value of 0.01 as our cutoff. We then ran a multiple regression with these 6 variables, and tested our linear model assumptions of linearity, equal variances (homoscedasticity), and normality. In order to do this, we looked at our residual plot and the Q-Q residuals. Roughly speaking, the linearity, homoscedasticity and normality assumptions are satisfied. We can see in our residual plot that we have a decent split of points above and below 0, and we also have a decent spread. In the Q-Q plot, we see the points generally fit a linear shape. Thus, we conclude that our multiple regression model fits the linear model assumptions. In terms of how these values impact the Esteem_PC1, considering that our esteem scores have an inverse relationship (lower scores imply higher esteem), we see that all of variables have positive “Estimate” values in summary(fit6), except for Intelligence, which has a negative “Estimate” value. This tells us that for higher values of the Education05, Income87, Income05, Inewspaper1, and MotherEd variables, this corresponds to lower esteem, whereas higher scores for Intelligence correspond to higher Esteem_PC1 scores.
 
 # Case study 2: Breast cancer sub-type
 
