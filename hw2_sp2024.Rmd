@@ -29,7 +29,8 @@ knitr::opts_chunk$set(echo = FALSE, fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
 # check if you have ISLR package, if not, install it
 if(!require('pacman')) {install.packages('pacman')}
-pacman::p_load(ISLR, tidyverse, data.table, magrittr, ggbiplot) # add the packages needed!!!
+pacman::p_load(ISLR, tidyverse, data.table, magrittr, ggbiplot, irlba) # add the packages needed!!!
+set.seed(0)
 ```
 
 \pagebreak
@@ -159,6 +160,10 @@ str(survey_data)
 # get rid of rows with negative values
 survey_data <- survey_data %>% filter(Income87 > 0)
 survey_data <- survey_data %>% filter(HeightFeet05 > 0)
+
+# log scale the incomes
+survey_data$Income05 <- log(survey_data$Income05)
+survey_data$Income87 <- log(survey_data$Income87)
 
 # make sure that we filtered correctly
 summary(survey_data)
@@ -430,6 +435,8 @@ summary(merged_df)
 ```
 
 ```{r}
+# note: we already changed the income to a log scale in the data cleaning step
+
 
 # we add the BMI column as follows:
 
@@ -444,6 +451,7 @@ merged_df$BMI <- merged_df$Weight05_kg / (merged_df$Height_m)^2
 
 # remove excess columns
 merged_df <- subset(merged_df, select = -c(Weight05_kg, Height_m))
+
 
 merged_df
 ```
@@ -709,6 +717,7 @@ b) Plot PC1 vs PC2 of the centered and scaled data and PC1 vs PC2 of the centere
 
 We first calculate the centered and unscaled data and their PCs using irlba. We then found the PVEs for this data, and we are also going to use 4 PCs because the elbow is located there.
 
+
 ```{r}
 # create centered and unscaled data
 brca_sub_unscaled_centered <- scale(as.matrix(brca_sub), center = T, scale = F)
@@ -719,18 +728,20 @@ names(svd_ret_unscaled)
 
 # Approximate the PVE for the centered and UNscaled data
 num_gene <- ncol(brca)
-svd_var <- svd_ret$d^2/(nrow(brca_sub_unscaled_centered)-1)
+svd_var <- svd_ret_unscaled$d^2/(nrow(brca_sub_unscaled_centered)-1)
 pve_apx <- svd_var/num_gene
 plot(pve_apx, type="b", pch = 19, frame = FALSE)
+pve_apx
 ```
+
 
 We now plot the PC1 and PC2 of both datasets.
 Start w/ scaled data:
 
 ```{r}
 # get pc score for scaled
-pc_score_scaled <- brca_sub_scaled_centered %*% svd_ret$v[, 1:5] #from PCA formula
-pc_score_scaled <- (svd_ret$u[, 1:5])*(svd_ret$d[1:5])  # from svd 
+pc_score_scaled <- brca_sub_scaled_centered %*% svd_ret$v[, 1:4] #from PCA formula
+pc_score_scaled <- (svd_ret$u[, 1:4])*(svd_ret$d[1:4])  # from svd 
 
 # do k-means clustering
 brca_sub_kmeans_scaled_centered <- kmeans(x = brca_sub_scaled_centered, 4)
@@ -747,8 +758,8 @@ table(brca_subtype, brca_sub_kmeans_scaled_centered$cluster)
 Now for unscaled data: 
 ```{r}
 # get pc score for unscaled
-pc_score_unscaled <- brca_sub_unscaled_centered %*% svd_ret$v[, 1:5] #from PCA formula
-pc_score_unscaled <- (svd_ret$u[, 1:5])*(svd_ret$d[1:5])  # from svd 
+pc_score_unscaled <- brca_sub_unscaled_centered %*% svd_ret_unscaled$v[, 1:4] #from PCA formula
+pc_score_unscaled <- (svd_ret_unscaled$u[, 1:4])*(svd_ret_unscaled$d[1:4])  # from svd 
 
 # do k-means clustering
 brca_sub_kmeans_unscaled_centered <- kmeans(x = brca_sub_unscaled_centered, 4)
@@ -764,7 +775,7 @@ table(brca_subtype, brca_sub_kmeans_unscaled_centered$cluster)
 
 ```{r fig.show="hold"}
 # apply kmeans for scaled
-kmean_ret1 <- kmeans(x =pc_score_scaled, 4)
+kmean_ret1 <- kmeans(x=pc_score_scaled, 4)
 
 p1 <- data.table(x =pc_score_scaled[,1], 
                 y = pc_score_scaled[,2],
@@ -796,14 +807,93 @@ p2 <- data.table(x =pc_score_unscaled[,1],
 gridExtra::grid.arrange(p1, p2, nrow=1)
 ```
 
+After plotting the PC2 vs. PC1 for the scaled and unscaled/scaled data, we see that the clusters for the unscaled data are less overlapping and more distinct than the scaled data.
+
 
 4.  Spectrum clustering: center but do not scale the data
 
     a)  Use the first 4 PCs of the centered and unscaled data and apply kmeans. Find a reasonable number of clusters using within sum of squared with the elbow rule.
 
-    b)  Choose an optimal cluster number and apply kmeans. Compare the real sub-type and the clustering label as follows: Plot scatter plot of PC1 vs PC2. Use point color to indicate the true cancer type and point shape to indicate the clustering label. Plot the kmeans centroids with black dots. Summarize how good is clustering results compared to the real sub-type.
+We plotted the WCSS for each value of k and we found, using the elbow rule, that the optimal number of clusters should be $k=4$.
 
+```{r}
+# taken from class
+
+# function to compute total within-cluster sum of square 
+wss <- function(df, k) {
+  kmeans(df, k, nstart = 10)$tot.withinss
+}  
+
+# Compute and plot wss for k = 2 to k = 15
+k.values <- 2:15
+
+# extract wss for 2-15 clusters using sapply 
+wss_values <- sapply(k.values, 
+                     function(k) kmeans(brca_sub_unscaled_centered, centers = k)$tot.withinss)
+
+# or use map_dbl()
+#wss_values <- map_dbl(k.values, function(k) wss(payroll[,-1], k))  
+plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+```
+
+
+    b)  Choose an optimal cluster number and apply kmeans. Compare the real sub-type and the clustering label as follows: Plot scatter plot of PC1 vs PC2. Use point color to indicate the true cancer type and point shape to indicate the clustering label. Plot the kmeans centroids with black dots. Summarize how good is clustering results compared to the real sub-type.
+    
+    
+```{r}
+# kmeans with the optimal 4 clusters
+kmean_ret1 <- kmeans(x=pc_score_unscaled, 4)
+
+# compute centroids
+centroids_df <- as.data.frame(kmean_ret1$centers)
+colnames(centroids_df) <- c("x", "y")
+
+
+# generate the PC2 vs. PC1 with the four clusters and sub-types
+p1 <- data.table(x =pc_score_unscaled[,1], 
+                y = pc_score_unscaled[,2],
+                col = as.factor(brca_subtype),
+                cl = as.factor(kmean_ret1$cluster)) %>%
+  ggplot() + 
+  geom_point(aes(x = x, y = y, col = col, shape = cl)) +
+  theme_bw() +
+  labs(color = "Cancer type", shape = "Cluster") +
+  ggtitle("unscaled data") + 
+  xlab("PC1") +
+  ylab("PC2")
+
+# plot the centroids
+p1 + 
+  geom_point(data = centroids_df, aes(x = x, y = y), color = "black", shape = 17, size = 5) +
+  geom_label(data = centroids_df, aes(x = x, y = y, label = 1:4), color = "black", vjust = -1)
+```
+
+```{r}
+# discrepancy table 
+table(brca_subtype, kmean_ret1$cluster)
+```
+
+  Compared the the actual sub-types, the third cluster is fairly differentiated, while clusters 1, 2, and 4 are of low quality because their sub-type distributions are not concentrated. 
+    
     c)  Compare the clustering result from applying kmeans to the original data and the clustering result from applying kmeans to 4 PCs. Does PCA help in kmeans clustering? What might be the reasons if PCA helps?
+    
+  The sub-type distributions of the clusters after PCA are slightly more concentrated relative to the original data. 
+    
+```{r}
+# the original clustering table
+# read in brca_sub_kmeans
+brca_sub_kmeans <- readRDS("./output/brca_kmeans.RDS")
+# discrepancy table 
+table(brca_subtype, brca_sub_kmeans$cluster)
+
+# the PC clustering table
+table(brca_subtype, kmean_ret1$cluster)
+```
+
+  
 
     d)  Now we have an x patient with breast cancer but with unknown sub-type. We have this patient's mRNA sequencing data. Project this x patient to the space of PC1 and PC2. (Hint: remember we remove some gene with no counts or no variablity, take log and centered, then find its PC1 to PC4 scores) Plot this patient in the plot in b) with a black dot as well. Calculate the Euclidean distance between this patient and each of the centroid of the cluster. (Don't forget the clusters are obtained by using 4 PC's) Can you tell which sub-type this patient might have?
 
