@@ -937,31 +937,127 @@ distances <- apply(centroids_df, 1, function(centroid) {
 distances
 ```
 
-We can see that the euclidean distance to the first cluster centroid is the smallest, so we predict that the x_patient has the Basal sub-type.
+We can see that the euclidean distance to the first cluster centroid is the smallest, so we predict that the x_patient has the Basal sub-type, since we see that it is in cluster 1.
 
 
 # Case Study: Fuel Efficiency in Automobiles
 
 **Linda will refine this case study by the following Monday, Feb 12th)**
 
-What determines how fuel efficient a car is? Are Japanese cars more fuel efficient? To answer thes questions we will build various linear models using the `Auto` dataset from the book `ISLR`. The original dataset contains information for about 400 different cars built in various years. To get the data, first install the package ISLR which has been done in the first R-chunk. The `Auto` dataset should be loaded automatically. Original data source is here: <https://archive.ics.uci.edu/ml/datasets/auto+mpg>
+What determines how fuel efficient a car is? Are Japanese cars more fuel efficient? To answer these questions we will build various linear models using the `Auto` dataset from the book `ISLR`. The original dataset contains information for about 400 different cars built in various years. To get the data, first install the package ISLR which has been done in the first R-chunk. The `Auto` dataset should be loaded automatically. Original data source is here: <https://archive.ics.uci.edu/ml/datasets/auto+mpg>
 
 Get familiar with this dataset first. Tip: you can use the command `?ISLR::Auto` to view a description of the dataset. Our response variable will me `MPG`: miles per gallon.
 
 ## EDA
 
 ```{r}
-# auto <- ISLR::Auto
-# ?ISLR::Auto
-# summary(auto) 
-# hist(auto$acceleration) # to check if there are some outliers
+auto <- ISLR::Auto
+?ISLR::Auto
+str(auto)
+summary(auto) 
+hist(auto$acceleration) # to check if there are some outliers
+# the right most category seems to be outliers
 ```
 
 a)  Explore the data, list the variables with clear definitions. Set each variable with its appropriate class. For example `origin` should be set as a factor.
+```{r}
+# set origin, cylinders to factor
+auto$origin <- as.factor(auto$origin)
+auto$cylinders <- as.factor(auto$cylinders)
+
+# set these variables as integers
+auto$displacement <- as.integer(auto$displacement)
+auto$horsepower <- as.integer(auto$horsepower)
+auto$weight <- as.integer(auto$weight)
+auto$mpg <- as.integer(auto$mpg)
+
+# see all variables and types
+str(auto)
+
+# see summary of the data, with mean, min, max, etc.
+summary(auto)
+
+```
+The variables are:
+
+mpg (miles per gallon) - int: fuel efficiency metric
+cylinders - factor: number of cylinders in the car, 4-8
+displacement - int: engine displacement in cubic inches
+horsepower - int: the rate at which work is done by the car (power metric)
+weight - int: the weight of the car in lbs
+acceleration - num: time to accelerate from 0 to 60 mph in seconds
+year - num: the model year of the car, modulo 100
+origin - factor: either 1 American, 2 European, or 3 Japanese
 
 b)  How many cars are included in this data set?
 
+There are 392 cars included in this data set, each with 9 variables.
+```{r}
+dim(auto)
+```
+
+
 c)  EDA, focus on pairwise plots and summary statistics. Briefly summarize your findings and any peculiarities in the data.
+```{r}
+summary(auto)
+```
+The data set said that the number of cylinders would be between 4-8, but there are 4 cars with 3 cylinders. We expect cars to have an even number of cylinders but there are 3 cars with 5. We also see an outlier in mpg, where the minimum is just 9. We see most cars are American, followed by some Japanese then some European. We have 304 different factor categories for name. The years are between '70 and '82. The car weights range from 1600 to 5140 lbs, with an average of 2804. There don't seem to be any crazy outliers in horsepower, displacement, or weight. We think that though some cars have higher accelerations, they are not worth removing from the set since they aren't too far off from the other data points.
+
+```{r}
+# filter out cars with odd number of cylinders
+auto <- subset(auto, !(cylinders == 3 | cylinders == 5))
+dim(auto)
+```
+
+We see from the plot below that more recent cars have better fuel efficiency.
+```{r}
+# Scatterplot of MPG vs Year
+ggplot(auto, aes(x = year, y = mpg)) +
+  geom_point() +  
+  labs(x = "Year", y = "Miles per Gallon", title = "MPG vs Year") +  
+  theme_minimal() 
+```
+
+From the plot below, we see a clear decreasing trend that implies that higher horsepower reduces MPG fuel efficiency.
+```{r}
+# Scatterplot of MPG versus horsepower
+ggplot(auto, aes(x = horsepower, y = mpg)) +
+  geom_point() +  
+  labs(x = "Horsepower", y = "Miles per Gallon", title = "MPG vs Horsepower") +  
+  theme_minimal() 
+```
+
+We see from the plot below that increased weight corresponds to decreased fuel efficiency for the car.
+
+```{r}
+# Scatterplot of MPG versus weight
+ggplot(auto, aes(x = weight, y = mpg)) +
+  geom_point() +  
+  labs(x = "Weight", y = "Miles per Gallon", title = "MPG vs Weight") +  
+  theme_minimal() 
+```
+
+
+We see from the plot below that more cylinders correspond to lower MPG's (lower fuel efficiency) on average.
+```{r}
+# Plot MPG versus number of cylinders
+ggplot(auto, aes(x = as.factor(cylinders), y = mpg)) +
+  geom_boxplot() +  
+  labs(x = "Cylinders", y = "Miles per Gallon", title = "MPG vs Cylinders") +  
+  theme_minimal() 
+```
+
+
+We see from the plot below that the cars with the higheest fuel efficiency are Japanese cars, followed by European, then American.
+```{r}
+# Plot MPG versus origin in boxplot
+ggplot(auto, aes(x = as.factor(origin), y = mpg)) +
+  geom_boxplot() + 
+  labs(x = "Origin", y = "Miles per Gallon", title = "MPG vs Origin") +  
+  theme_minimal() 
+```
+
+
 
 ## What effect does `time` have on `MPG`?
 
