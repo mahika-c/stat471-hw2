@@ -942,8 +942,6 @@ We can see that the euclidean distance to the first cluster centroid is the smal
 
 # Case Study: Fuel Efficiency in Automobiles
 
-**Linda will refine this case study by the following Monday, Feb 12th)**
-
 What determines how fuel efficient a car is? Are Japanese cars more fuel efficient? To answer these questions we will build various linear models using the `Auto` dataset from the book `ISLR`. The original dataset contains information for about 400 different cars built in various years. To get the data, first install the package ISLR which has been done in the first R-chunk. The `Auto` dataset should be loaded automatically. Original data source is here: <https://archive.ics.uci.edu/ml/datasets/auto+mpg>
 
 Get familiar with this dataset first. Tip: you can use the command `?ISLR::Auto` to view a description of the dataset. Our response variable will me `MPG`: miles per gallon.
@@ -954,7 +952,8 @@ Get familiar with this dataset first. Tip: you can use the command `?ISLR::Auto`
 auto <- ISLR::Auto
 ?ISLR::Auto
 str(auto)
-summary(auto) 
+summary(auto)
+auto2 <- copy(auto) # save a copy for future computations
 hist(auto$acceleration) # to check if there are some outliers
 # the right most category seems to be outliers
 ```
@@ -1000,14 +999,12 @@ dim(auto)
 c)  EDA, focus on pairwise plots and summary statistics. Briefly summarize your findings and any peculiarities in the data.
 ```{r}
 summary(auto)
+auto <- subset(auto, !(cylinders == 3))
+auto2 <- subset(auto2, !(cylinders == 3))
+summary(auto)
 ```
-The data set said that the number of cylinders would be between 4-8, but there are 4 cars with 3 cylinders. We expect cars to have an even number of cylinders but there are 3 cars with 5. We also see an outlier in mpg, where the minimum is just 9. We see most cars are American, followed by some Japanese then some European. We have 304 different factor categories for name. The years are between '70 and '82. The car weights range from 1600 to 5140 lbs, with an average of 2804. There don't seem to be any crazy outliers in horsepower, displacement, or weight. We think that though some cars have higher accelerations, they are not worth removing from the set since they aren't too far off from the other data points.
+The data set said that the number of cylinders would be between 4-8, but there are 4 cars with 3 cylinders (so we remove these out of range cars). We expect cars to have an even number of cylinders but there are 3 cars with 5. We decided to keep these values because there are cars manufactured with 5 cylinders, but we note that they are abnormal. We also see an outlier in mpg, where the minimum is just 9. We see most cars are American, followed by some Japanese then some European. We have 304 different factor categories for name. The years are between '70 and '82. The car weights range from 1600 to 5140 lbs, with an average of 2804. There don't seem to be any crazy outliers in horsepower, displacement, or weight. We think that though some cars have higher accelerations, they are not worth removing from the set since they aren't too far off from the other data points.
 
-```{r}
-# filter out cars with odd number of cylinders
-auto <- subset(auto, !(cylinders == 3 | cylinders == 5))
-dim(auto)
-```
 
 We see from the plot below that more recent cars have better fuel efficiency.
 ```{r}
@@ -1015,6 +1012,15 @@ We see from the plot below that more recent cars have better fuel efficiency.
 ggplot(auto, aes(x = year, y = mpg)) +
   geom_point() +  
   labs(x = "Year", y = "Miles per Gallon", title = "MPG vs Year") +  
+  theme_minimal() 
+```
+
+From the plot below, we see a general positive trend between acceleration and MPG, but not too significant.
+```{r}
+# Scatterplot of MPG versus acceleration
+ggplot(auto, aes(x = acceleration, y = mpg)) +
+  geom_point() +  
+  labs(x = "Acceleration", y = "Miles per Gallon", title = "MPG vs Acceleration") +  
   theme_minimal() 
 ```
 
@@ -1063,11 +1069,41 @@ ggplot(auto, aes(x = as.factor(origin), y = mpg)) +
 
 a)  Start with a simple regression of `mpg` vs. `year` and report R's `summary` output. Is `year` a significant variable at the .05 level? State what effect `year` has on `mpg`, if any, according to this model.
 
+After running a linear regression of mpg vs year, we see that there is a positive relationship between year and fuel efficiency. Based on the summary of our fit, we see a p-value of <2e-16, which suggests that at the 0.05 level, year IS a significant factor on mpg. Higher year implies higher mpg. We see a beta value of 1.1977.
+
+```{r}
+# run regression with MPG vs year
+mpg_lm1 <- lm(mpg ~ year, data = auto) 
+summary(mpg_lm1)
+
+# plot(mpg_lm1, 1)
+ggplot(auto, aes(x = year , y = mpg)) + 
+  geom_point() +
+  geom_smooth(method="lm",se=F) + 
+geom_hline(aes(yintercept = mean(mpg)), color = "red") 
+```
+
 b)  Add `horsepower` on top of the variable `year` to your linear model. Is `year` still a significant variable at the .05 level? Give a precise interpretation of the `year`'s effect found here.
+
+Based on the summary of our lm for year and horsepower, we see that the p-value is still less than alpha = 0.05. It is <2e-16, suggesting that year IS still a significant variable on mpg. Our precise interpretation of year's effect is that its beta value is 0.61917, which implies that a single unit increase in year increases the mpg by 0.61917. Since we have such a low p-value, this disproves the null hypothesis that year doesn't impact mpg.
+```{r}
+# run regression with MPG vs year and horsepower
+mpg_lm2 <- lm(mpg ~ year + horsepower, data = auto) 
+summary(mpg_lm2)
+```
 
 c)  The two 95% CI's for the coefficient of year differ among (a) and (b). How would you explain the difference to a non-statistician?
 
+To find the 95% CI for the coefficient of the year between (a) and (b) we do +/- 2 x the standard error for year. For (a), this would be 1.1977 +/- 2 * 0.0886, and for (b) it would be 0.61917 +/- 2 * 0.06690. In the second case, we have tighter range/bound for our 95% confidence interval, meaning we are more certain on our estimate for the beta value of year with a 95% confidence. In the first case, we have a higher estimate, and thus the range of values that we believe beta to be in have higher values. In both cases, since we have a very low p-value, we know that year does in fact have an impact on mpg in our linear regression. 
+
 d)  Create a model with interaction by fitting `lm(mpg ~ year * horsepower)`. Is the interaction effect significant at .05 level? Explain the year effect (if any).
+
+As we see from the summary of the fit with interaction below the interactio effect IS significant at the 0.05 level, since we see very small p-values of <2e-16. Year alone still does have an effect, since the beta value is 2.16e+00, so there is a positive relationship where if year increases by a unit, then mpg increases this much. We also see that in terms of interaction, we see a negative value of -1.60e-02.
+
+```{r results=TRUE}
+fit.with.interaction <- lm(mpg ~ year * horsepower, auto)
+summary(fit.with.interaction)
+```
 
 ## Categorical predictors
 
@@ -1075,11 +1111,69 @@ Remember that the same variable can play different roles! Take a quick look at t
 
 a)  Fit a model that treats `cylinders` as a continuous/numeric variable. Is `cylinders` significant at the 0.01 level? What effect does `cylinders` play in this model?
 
+The following is a linear model of mpg vs cylinders as a numeric variable. The p-value is very small, <2e-16, which suggests that cylinders is significant at the 0.01 level. Specifically, the beta value is -3.558, which suggests that increased number of cylinders by 1 unit on average implies decreased mpg by that amount on average.
+
+```{r}
+# run regression with MPG vs cylinders as numeric
+mpg_lm3 <- lm(mpg ~ cylinders, data = auto2) 
+summary(mpg_lm3)
+
+# plot(mpg_lm3, 1)
+ggplot(auto2, aes(x = cylinders, y = mpg)) + 
+  geom_point() +
+  geom_smooth(method="lm",se=F) + 
+  ggtitle("MPG vs Cylinders as numeric variable")
+geom_hline(aes(yintercept = mean(mpg)), color = "red") 
+```
+
 b)  Fit a model that treats `cylinders` as a categorical/factor. Is `cylinders` significant at the .01 level? What is the effect of `cylinders` in this model? Describe the `cylinders` effect over `mpg`.
+
+Here, we create a boxplot to show the spread of mgp given the number of cylinders.
+
+```{r results=TRUE}
+auto %>%
+group_by(cylinders) %>%
+  summarise(
+    mean = mean(mpg),
+    sd  = sd(mpg),
+    n = n()
+  )
+  
+ggplot(auto) + geom_boxplot(aes(x = cylinders, y = mpg))
+```
+
+
+```{r}
+# run regression with MPG vs cylinders as categorical
+mpg_lm4 <- lm(mpg ~ cylinders, data = auto) 
+summary(mpg_lm4)
+
+# plot(mpg_lm4, 1)
+ggplot(auto, aes(x = cylinders, y = mpg)) + 
+  geom_point() +
+  geom_smooth(method="lm",se=F) + 
+  ggtitle("MPG vs Cylinders as categorical variable")
+geom_hline(aes(yintercept = mean(mpg)), color = "red") 
+```
+
+
+```{r, results=T}
+Anova(mpg_lm4)
+```
+We can see that there are p-values that are very small, <2e-16, such as in cylinders6 and cylinders8, as well as in the Anova test, which suggests that these cylinders categories do have a significant effect on mpg. We see the biggest magnitude beta values for cylinders8, followed by cylinders6. These are negative value, -14 and -9 respectively, suggesting that more cylinders implies less fuel efficiency.
 
 c)  What are the fundamental differences between treating `cylinders` as a continuous and categorical variable in your models?
 
+When we treat cylinders as a continuous variable, we see one beta value returned by our lm model, whereas if we treat it as a categorical variable, we get separate beta values for each category, where some categories have greater magnitudes (such as cylinders8), suggesting a stronger relationship for these specific categories. Treating "cylinders" as continuous assumes a linear relationship and may not capture potential non-linear relationships or differences in the effect of each additional cylinder. When we treat cylinders as a categorical variable, we see lower RSE and higher R^2 values. We overall thus think that treating it as a categorical variable is better.
+
 d)  Can you test the null hypothesis: fit0: `mpg` is linear in `cylinders` vs. fit1: `mpg` relates to `cylinders` as a categorical variable at .01 level?
+
+We ran an anova analysis for the two different models, where fit0 is represented by mpg_lm3, and fit1 is represented by mpg_lm4. We see that our p-value is very small, 3.7e-06. Thus, at the 0.01 level, we can reject the null hypothesis. We thus think that we should treat cylinders as a categorical variable.
+
+```{r}
+anova(mpg_lm3, mpg_lm4)  
+```
+
 
 ## Results
 
@@ -1087,9 +1181,66 @@ Final modeling question: we want to explore the effects of each feature as best 
 
 a)  Describe the final model. Include diagnostic plots with particular focus on the model residuals and diagnoses.
 
+For our final model, we are choosing to disregard acceleration, since as we see in the first part of this case, there isn't a very strong/clear relationship between acceleration and MPG. We include all of the other variables, since as our plots above show, there are clear relationships between all of the variables and MPG. We also chose to not include name since there are 304 categories, and we can't gain meaningful information about trends from this data (just about 5 cars in each name category).
+
+```{r}
+# we see a very low R-squared, so we don't include acceleration in our final model
+fit.acceleration <- lm(mpg ~ acceleration, data = auto)
+summary(fit.acceleration)
+```
+Thus, our final model includes the variables year, cylinders (as a categorical variable), displacement, weight, horsepower, and origin. We use interactions for year and origin, since we thought the model year could have different effects in different countries. We can see that all of the p-values, with the except of a some of the cylinders categories, are very small, and certainly less than alpha = 0.01. This tells us that these variables do have significant impact on the mpg. If we look at the last line in the summary, F-statistic:  200 on 11 and 376 DF,  p-value: <2e-16. These metrics confirm that our regression model includes meaningful predictor variables.
+
+```{r}
+# run regression with MPG vs other variables
+mpg_lm5 <- lm(mpg ~ year * origin + cylinders + displacement + weight + horsepower, data = auto) 
+summary(mpg_lm5)
+```
+
+When we use Anova to test our model, we also see very small p-values, but displacement has the highest, which indicates it might not be the best predictor among the others. Overall, our model seems to use good quality predictors.
+
+```{r}
+Anova(mpg_lm5)
+```
+
+Residuals Plot: We plotted the Residuals vs Fitted plot and the Q-Q Residuals plot to test our linear model assumptions of equal variance (homoscedasticity), linearty, and normality. We see that the residuals are evenly distributed with even variance, with an even number of points above and below 0, and in the Q-Q plot we see the points fit a linear trend. Thus our model passes the model assumptions tests.
+
+```{r eval=T}
+par(mfrow=c(1,2), mar=c(5,2,4,2), mgp=c(3,0.5,0)) # plot(mpg_lm5) produces several plots
+plot(mpg_lm5, 1, pch=16) # residual plot
+abline(h=0, col="blue", lwd=2)
+plot(mpg_lm5, 2) # qqplot
+summary(mpg_lm5)
+```
+
+
 b)  Summarize the effects found.
 
+Our lm model shows many significant effects on mpg based on the provided coefficients in the table. The intercept term indicates an estimated mpg of approximately 1.94. Year has a positive effect on mpg, with each additional year leading to an increase of approximately 0.52 mpg. Among the different cylinder counts, cars with 6 cylinders show the most substantial negative effect on mpg, with an estimated decrease of about 3.65 mpg compared to the reference category. Weight has a strong negative effect on mpg, with an estimated decrease of approximately 0.0055 mpg for each additional pound. Horsepower also negatively impacts mpg, with each additional unit of horsepower associated with a decrease of approximately 0.0364 mpg. There are also significant interaction effects between year and origin, indicating that the relationship between year and mpg varies across different origins. Overall, the model has a high adjusted R-squared value of 0.85, suggesting that it explains a good portion of the variance in the data.
+
+
+```{r}
+summary(mpg_lm5)
+```
+
+
 c)  Predict the `mpg` of the following car: A red car built in the US in 1983 that is 180 inches long, has eight cylinders, displaces 350 cu. inches, weighs 4000 pounds, and has a horsepower of 260. Also give a 95% CI for your prediction.
+
+```{r results=TRUE}
+newcar <- data.frame(cylinders = as.factor(8),
+                     displacement = 350, 
+                     weight = 4000,
+                     origin = as.factor(1),
+                     horsepower = 260,
+                     year = 83
+                     )
+newcar
+```
+
+```{r results=TRUE}
+predict(mpg_lm5, newcar, interval = "confidence", se.fit = TRUE) 
+```
+
+Based on the prediction above with our final model, we can see that the prediction is 16.6 mpg +/- 2 * 1.31 for a 95% CI, which gives us lower and upper bounds of 14 and 19.2 mpg.
 
 # Simple Regression through simulations (Optional)
 
