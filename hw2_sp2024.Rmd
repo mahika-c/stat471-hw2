@@ -829,7 +829,8 @@ k.values <- 2:15
 
 # extract wss for 2-15 clusters using sapply 
 wss_values <- sapply(k.values, 
-                     function(k) kmeans(brca_sub_unscaled_centered, centers = k)$tot.withinss)
+                     function(k) kmeans(brca_sub_unscaled_centered,
+                                        centers = k)$tot.withinss)
 
 # or use map_dbl()
 #wss_values <- map_dbl(k.values, function(k) wss(payroll[,-1], k))  
@@ -880,7 +881,7 @@ table(brca_subtype, kmean_ret1$cluster)
     
     c)  Compare the clustering result from applying kmeans to the original data and the clustering result from applying kmeans to 4 PCs. Does PCA help in kmeans clustering? What might be the reasons if PCA helps?
     
-  The sub-type distributions of the clusters after PCA are slightly more concentrated relative to the original data. 
+  The sub-type distributions of the clusters after PCA are slightly more concentrated relative to the original data. PCA may be constructing some features that capture a greater amount of variance than the original features, hence the slightly more concentrated distributions.
     
 ```{r}
 # the original clustering table
@@ -893,13 +894,51 @@ table(brca_subtype, brca_sub_kmeans$cluster)
 table(brca_subtype, kmean_ret1$cluster)
 ```
 
-  
-
     d)  Now we have an x patient with breast cancer but with unknown sub-type. We have this patient's mRNA sequencing data. Project this x patient to the space of PC1 and PC2. (Hint: remember we remove some gene with no counts or no variablity, take log and centered, then find its PC1 to PC4 scores) Plot this patient in the plot in b) with a black dot as well. Calculate the Euclidean distance between this patient and each of the centroid of the cluster. (Don't forget the clusters are obtained by using 4 PC's) Can you tell which sub-type this patient might have?
 
 ```{r}
 x_patient <- fread("data/brca_x_patient.csv")
+
+# remove genes with 0 counts and no variability; previously computed and stored in sel_cols
+x_patient <- x_patient[, sel_cols, with=F]
+
+# use log scale to spread out all the cell numbers
+x_patient <- log2(as.matrix(x_patient+1e-10)) 
+
+# center the data using previous column means
+x_patient <- (x_patient - colMeans(as.matrix(brca_sub)))
+x_patient[, 1:10]
 ```
+
+```{r}
+# project the x_patient vector to the PC space
+U <- svd_ret_unscaled$v
+x_patient_projected <- x_patient %*% U
+
+# first four PCs
+x_patient_projected <- x_patient_projected[, 1:4]
+print(x_patient_projected)
+
+x_patient_df <- data.frame(x = x_patient_projected[1], y = x_patient_projected[2])
+
+# plot the new patient
+p1 + 
+  geom_point(data = centroids_df, aes(x = x, y = y), color = "black", shape = 17, size = 5) +
+  geom_label(data = centroids_df, aes(x = x, y = y, label = 1:4), color = "black", vjust = -1) + 
+  geom_point(data = x_patient_df, aes(x = x, y = y), color = "black", shape = 18, size = 10)
+```
+
+
+```{r}
+
+distances <- apply(centroids_df, 1, function(centroid) {
+  sqrt(sum((centroid - x_patient_projected)^2))
+})
+distances
+```
+
+We can see that the euclidean distance to the first cluster centroid is the smallest, so we predict that the x_patient has the Basal sub-type.
+
 
 # Case Study: Fuel Efficiency in Automobiles
 
