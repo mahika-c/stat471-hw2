@@ -29,7 +29,7 @@ knitr::opts_chunk$set(echo = FALSE, fig.width=8, fig.height=4)
 options(scipen = 0, digits = 3)  # controls base R output
 # check if you have ISLR package, if not, install it
 if(!require('pacman')) {install.packages('pacman')}
-pacman::p_load(ISLR, tidyverse, data.table, magrittr, ggbiplot, irlba) # add the packages needed!!!
+pacman::p_load(ISLR, tidyverse, data.table, magrittr, ggbiplot, irlba, car) # add the packages needed!!!
 set.seed(0)
 ```
 
@@ -133,17 +133,17 @@ Load the data. Do a quick EDA to get familiar with the data set. Pay attention t
 
 We saw that there were no rows with missing values. We also changed the datatypes appropriately: Gender, Job05,Imagazine, Inewspaper, and Ilibrary to factors. We also made sure to remove rows with negative Income87 or negative HeightFeet05.
 
-```{r quick skim of the data}
+```{r quick skim of the data, echo=FALSE}
 survey_data <- read.csv('data/NLSY79.csv', header = T, stringsAsFactors = F)
 # # missing values? real variables vs. factors? are variable values reasonable?
 str(survey_data)
 summary(survey_data)
-levels(as.factor(survey_data$Job05))
+# levels(as.factor(survey_data$Job05))
 table(as.factor(survey_data$Job05))
 
 # checking for rows with missing values
 rows_with_na <- (survey_data[apply(survey_data, 1, function(x) any(is.na(x))),])
-print(rows_with_na)
+# print(rows_with_na)
 # rows_with_na has 0 rows, indicating no missing values
 
 # change data types
@@ -155,7 +155,7 @@ survey_data %<>%
   mutate(Ilibrary = as.factor(Ilibrary))
 
 # make sure we changed the types correctly
-str(survey_data)
+# str(survey_data)
 
 # get rid of rows with negative values
 survey_data <- survey_data %>% filter(Income87 > 0)
@@ -166,7 +166,7 @@ survey_data$Income05 <- log(survey_data$Income05)
 survey_data$Income87 <- log(survey_data$Income87)
 
 # make sure that we filtered correctly
-summary(survey_data)
+# summary(survey_data)
 ```
 
 ## Self esteem evaluation
@@ -177,11 +177,10 @@ Let concentrate on Esteem scores evaluated in 87.
 
 We extracted the columns that began with "Esteem87" and then ran summary stats for those columsn. We then checked for NA values; we saw that there are no missing values. For all Esteem87 columns, the min is 1 and the max is 4, which is expected. So there are no issues with these variables.
 
-```{r}
+```{r, echo=FALSE}
 # extracting only the part of survey_data for Esteem87
 esteem_cols <- grep("^Esteem87", names(survey_data), value = TRUE)
 esteem_df <- survey_data[esteem_cols]
-esteem_df
 summary(esteem_df)
 
 # checking for rows with missing values
@@ -194,7 +193,7 @@ print(rows_with_na)
 
 Now, for all Esteem87 columns, a lower score implies higher self esteem.
 
-```{r}
+```{r echo=FALSE}
 esteem_columns <- grep("^Esteem87_(1|2|4|6|7)$", names(esteem_df), value = TRUE)
 esteem_df[, c(esteem_columns)] <- 5 - esteem_df[, c(esteem_columns)]
 summary(esteem_df)
@@ -204,7 +203,7 @@ summary(esteem_df)
 
 Esteem87_1 through Esteem87_5 all have a median of 4. And the rest have a median of 3. They all have a min of 1 and a max of 4. The mean valyes are in the summary below. We created a histogram for all 10 measurements.
 
-```{r}
+```{r echo=FALSE}
 summary(esteem_df)
 
 # Reshape the data to long format
@@ -222,7 +221,7 @@ ggplot(esteem_long, aes(x = Value)) +
 
 From the pairwise correlation table, all scores are positively correlated. This implies that for all scores, one score increasing is correlated to another score increasing. The same goes if they are both decreasing.
 
-```{r}
+```{r echo=FALSE}
 cor(esteem_df)
 ```
 
@@ -232,7 +231,7 @@ cor(esteem_df)
 
 We extracted the first two columns from the rotation part of prcomp to get PC1 and PC2 loadings. We then checked if they are unit vectors by checking their lengths. They are both length of 1, so they are unit vectors. The dot product of the two columns is very close to 0, so they are considered to be orthogonal.
 
-```{r}
+```{r echo=FALSE}
 # get the loadings for pc 1 and pc2
 pca <- prcomp(esteem_df, scale=FALSE, center=T)
 pc1_2 <- pca$rotation[,c(1,2)]
@@ -253,7 +252,7 @@ b) Are there good interpretations for PC1 and PC2? (If loadings are all negative
 
 PC1 is the weighted sum of all Esteem87 values since all loadings are positive. PC2 represents ((the weighted sum of Esteem87_8 through Esteem87_10) - (the weighted sum of Esteem87_1 through Esteem87_7)) since Esteem87_8 through Esteem87_10 loadings are positive and the others' loadings are negative.
 
-```{r}
+```{r echo=FALSE}
 # printing the loadings for PC1 and PC2
 pc1_2
 ```
@@ -270,7 +269,7 @@ d) Are PC1 scores and PC2 scores in the data uncorrelated?
 
 Yes, they are uncorrelated. In the x section of prcomp, we ran a correlation table. We found that the cor between PC1 and PC2 scores is near 0 (7.58e-16), meaning they are uncorrelated.
 
-```{r}
+```{r echo=FALSE}
 # find correlation between PCs
 cor(pca$x)
 ```
@@ -281,7 +280,7 @@ e) Plot PVE (Proportion of Variance Explained) and summarize the plot.
 
 By plotting the PVE for each PC, we see that the PVEs exponentially decrease as the PCs increase, with the elbow at PC2. We can only consider PC1 and PC2 to capture the majority of the data in 2 dimensions.
 
-```{r}
+```{r echo=FALSE}
 # plotting PVE plot
 pve <- summary(pca)$importance[2,1:10]
 pve_df <- data.frame(pve)
@@ -300,7 +299,7 @@ f) Also plot CPVE (Cumulative Proportion of Variance Explained). What proportion
 
 About 60% of the variance is explained by the first two principal components. (Note that the y-axis of this visualization doesn't start at 0).
 
-```{r}
+```{r echo=FALSE}
 # calculate the explained variance
 var_explained <- pca$sdev^2
 prop_var_explained <- var_explained / sum(var_explained)
@@ -326,7 +325,7 @@ g) PC’s provide us with a low dimensional view of the self-esteem scores. Use 
 
 PC2 splits the variables into two groups, one with Esteem87_8, 9, 10 and one with the rest; this indicates that there is a group of questions that is negatively correlated with PC2 and one that is positively correlated. PC1 is highly correlated with all esteem questions.
 
-```{r}
+```{r echo=FALSE}
 # printing biplot for the first two PCs
 ggbiplot(pca, obs.scale = 1, var.scale = 1,
   groups = NULL, ellipse = TRUE, circle = TRUE) +
@@ -340,7 +339,7 @@ ggbiplot(pca, obs.scale = 1, var.scale = 1,
 
 We would say that the elbow in the data with regards to WSS can be seen at 3 clusters.
 
-```{r}
+```{r echo=FALSE}
 # scaling the data
 scaled_data <- scale(esteem_df)
 
@@ -363,7 +362,7 @@ b) Can you summarize common features within each cluster?
 
 For each cluster we found the average esteem question response (among each of the 10 questions) and then plotted a heatmap with the resulting data. We can observe that cluster 3 contains people that responded highly to most of the esteem questions, followed by those in cluster 1, and finally those in cluster 2 with the lowest average ratings. Thus, it seems that clusters 3 and 1 contains people with relatively low self-esteem, and cluster 2 contains high self-esteem respondents. In particular, cluster 1 has high answer averages for questions 1, 2, 4, 6, and 7, whereas cluster 3 has higher average responses for 1, 2, 3, 5, and 7 thorugh 10.
 
-```{r}
+```{r echo=FALSE}
 cluster_means <- aggregate(. ~ cluster, data = clustered_df, mean)
 cluster_means
 
@@ -378,9 +377,9 @@ ggplot(clustered_df_melted, aes(variable, cluster)) +
 c) Can you visualize the clusters with somewhat clear boundaries? You may try different pairs of variables and different PC pairs of the esteem scores.
 ```
 
-Using the two variables with the most drastic between-cluster color difference from the heatmap above, we can see a low-resolution separation between the three clusters in our first plot. Using the two principal components with the most explained variance, we see a higher resolution visualization of the three clusters (though without clear boundaries). We can see that cluster 1 generally has the highest PC1 values, followed by cluster 3, then cluser 2. Among the PC2 values, we see that cluster 3 tends to have lower PC2 values. We also see that the red dots, cluster 1, seems to be more clumped have reduced within SS (less intra-cluster distance from its center), whereas cluster 2 seems to be more spread apart and have more intra-cluster distance from its center.
+Using the two variables with the most drastic between-cluster color difference from the heatmap above, we can see a low-resolution separation between the three clusters in our first plot. Using the two principal components with the most explained variance, we see a higher resolution visualization of the three clusters (though without clear boundaries). We can see that cluster 1 generally has the highest PC1 values, followed by cluster 3, then cluster 2. Among the PC2 values, we see that cluster 3 tends to have lower PC2 values. We also see that the red dots, cluster 1, seems to be more clumped have reduced within SS (less intra-cluster distance from its center), whereas cluster 2 seems to be more spread apart and have more intra-cluster distance from its center.
 
-```{r}
+```{r echo=FALSE}
 # plotting the clusters using the two most differentiated variables
 ggplot(clustered_df, aes(x = Esteem87_3, y = Esteem87_10, color = as.factor(cluster))) +
   geom_point() + 
@@ -405,10 +404,10 @@ ggplot(pca_points, aes(x = PC1, y = PC2, color = as.factor(cluster))) +
 
     -   EDA the data set first.
 
-```{r}
+```{r echo=FALSE}
 # printing the PC1 scores for each respondent
 pc1 <- as.data.frame(pca$x[,1])
-pc1
+# pc1
 
 # EDA the PC1 scores
 summary(pc1)
@@ -422,7 +421,7 @@ names(survey_data_cleaned)
 merged_df = cbind(survey_data_cleaned, pc1)
 merged_df$Esteem_PC1 <- pc1[,1]
 merged_df <- merged_df[, !names(merged_df) %in% "pca$x[, 1]"]
-merged_df
+# merged_df
 
 # EDA of the data set
 # see wee that the pc1 median is -0.06, the mean is 0, the min is -5.47, and the max is 1.92
@@ -434,7 +433,7 @@ summary(merged_df)
   
 ```
 
-```{r}
+```{r echo=FALSE}
 # note: we already changed the income to a log scale in the data cleaning step
 
 
@@ -453,7 +452,7 @@ merged_df$BMI <- merged_df$Weight05_kg / (merged_df$Height_m)^2
 merged_df <- subset(merged_df, select = -c(Weight05_kg, Height_m))
 
 
-merged_df
+# merged_df
 ```
 
 ```         
@@ -461,7 +460,7 @@ merged_df
   
 ```
 
-```{r}
+```{r echo=FALSE}
 # change data types
 merged_df %<>%
   mutate(Imagazine = as.factor(Imagazine)) %<>%
@@ -476,7 +475,7 @@ str(merged_df)
   
 ```
 
-```{r}
+```{r echo=FALSE}
 # ASVAB columns
 columns_for_pc1 <- c("Coding", "Auto", "Mechanic", "Elec", "Science", "Math", "Arith", "Word", "Parag", "Number")
 
@@ -486,7 +485,7 @@ asvab_df <- merged_df[, columns_for_pc1]
 # find asvab pc1
 pca_asvab <- prcomp(asvab_df, scale=FALSE, center=T)
 pc1_asvab <- pca_asvab$x[,1]
-pc1_asvab
+# pc1_asvab
 
 pc1_asvab_df <- as.data.frame(pc1_asvab)
 summary(pc1_asvab_df)
@@ -495,7 +494,7 @@ summary(pc1_asvab_df)
 merged_df$Intelligence <- pc1_asvab
 
 # display merged_df
-merged_df
+# merged_df
 ```
 
 ```         
@@ -505,7 +504,7 @@ b)   Run a few regression models between PC1 of all the esteem scores and suitab
 Our intial thought is to find invidiual variables that have the largest effect on Esteem_PC1. We do individual regressions and find ones with the most significant B-values. 
 ```
 
-```{r}
+```{r echo=FALSE}
 
 # run regression with Education vs Esteem
 fit1 <- lm(Esteem_PC1 ~ Education05, data = merged_df) 
@@ -518,7 +517,7 @@ ggplot(merged_df, aes(x = Education05 , y = Esteem_PC1)) +
 geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
 ```
 
-```{r}
+```{r echo=FALSE}
 # run regression with Intelligence vs Esteem
 fit2 <- lm(Esteem_PC1 ~ Intelligence, data = merged_df) 
 summary(fit2)
@@ -530,7 +529,7 @@ ggplot(merged_df, aes(x = Intelligence , y = Esteem_PC1)) +
 geom_hline(aes(yintercept = mean(Esteem_PC1)), color = "red") 
 ```
 
-```{r}
+```{r echo=FALSE}
 # run regression with BMI vs esteem
 # remove the BMI outlier
 merged_df <- merged_df[merged_df$BMI <= 75, ]
@@ -549,7 +548,7 @@ We can see from above that that Education has the largest effect on esteem. The 
 
 We now want to run multiple regressions on two different sets of variables that could effect esteem: 1) household variables, and 2) personal variables.
 
-```{r}
+```{r echo=FALSE}
 # run multiple regression with Household variables vs esteem
 fit4 <- lm(Esteem_PC1 ~ Imagazine + Inewspaper + Ilibrary + MotherEd + FatherEd + FamilyIncome78, data = merged_df) 
 summary(fit4)
@@ -557,7 +556,7 @@ summary(fit4)
 
 We can see that Inewspaper1 and MotherEd have the lowest p-values from these variables. For this, we used an alpha cutoff os 0.01.
 
-```{r}
+```{r, echo=FALSE, include=FALSE}
 # run multiple regression with personal variables vs esteem
 fit5 <- lm(Esteem_PC1 ~ Intelligence + Gender + Education05 + Income87 + Job05 + Income05 + BMI, data = merged_df) 
 summary(fit5)
@@ -571,7 +570,7 @@ We can see from above that Intelligence, Education05, Income87, and Income 05 ha
 
 We can combine the most signficant variables from both multiple regressions above: Inewspaper1 and MotherEd, along with Intelligence, Education05, Income87, and Income 05. We create a final multiple regression fit with these 6 variables:
 
-```{r}
+```{r echo=FALSE}
 # run multiple regression with most impactful variables vs esteem
 fit6 <- lm(Esteem_PC1 ~ Inewspaper + MotherEd + Intelligence + Education05 + Income87 + Income05, data = merged_df) 
 summary(fit6)
@@ -609,7 +608,7 @@ We will try to use mRNA expression data alone without the labels to classify 4 s
 
 We first read the data using `data.table::fread()` which is a faster way to read in big data than `read.csv()`.
 
-```{r}
+```{r echo=FALSE}
 brca <- fread("data/brca_subtype.csv")
 
 # get the sub-type information
@@ -621,7 +620,7 @@ brca_subtype <- brca$BRCA_Subtype_PAM50
 
     a)  How many patients are there in each sub-type? There are 208 Basal, 91 Her2, 628 LumA, and 233 Lumb patients.
 
-    ```{r}
+    ```{r echo=FALSE}
     # count the patients in each sub-type
     patient_count <- table(brca_subtype)
     patient_count
@@ -629,7 +628,7 @@ brca_subtype <- brca$BRCA_Subtype_PAM50
 
     b)  Randomly pick 5 genes and plot the histogram by each sub-type.
 
-    ```{r}
+    ```{r echo=FALSE}
     # select 5 random columns (omitting the final column)
     random_cols <- sample(names(brca[,-1]), 5)
 
@@ -654,14 +653,14 @@ brca_subtype <- brca$BRCA_Subtype_PAM50
 
     c)  Clean and transform the mRNA sequences by first remove gene with zero count and no variability and then apply logarithmic transform.
 
-```{r}
+```{r echo=FALSE}
 # find the initial dimensions of brca. There are initially 1160 patient samples.
 dim(brca)
 ```
 
 We see that there were originally 19,947 rows, and our removal process resulted in 19,669, so we elimitated 288 rows (patients).
 
-```{r}
+```{r echo=FALSE}
 # remove genes with 0 counts and no variability.
 no_variability_cols <- sapply(brca, function(col) length(unique(col)) <= 1)
 non_zero_sum_cols <- colSums(abs(brca)) != 0
@@ -675,13 +674,13 @@ brca_sub <- log2(as.matrix(brca_sub+1e-10))
 
 2.  Apply kmeans on the transformed dataset with 4 centers (4 clusters) and output the discrepancy table between the real sub-type `brca_subtype` and the cluster labels.
 
-```{r}
+```{r echo=FALSE}
 # do k-means clustering
 brca_sub_kmeans <- kmeans(x = brca_sub, 4)
 saveRDS(brca_sub_kmeans, "./output/brca_kmeans.RDS")
 ```
 
-```{r}
+```{r echo=FALSE}
 # read in brca_sub_kmeans
 brca_sub_kmeans <- readRDS("./output/brca_kmeans.RDS")
 names(brca_sub_kmeans)
@@ -717,8 +716,7 @@ b) Plot PC1 vs PC2 of the centered and scaled data and PC1 vs PC2 of the centere
 
 We first calculate the centered and unscaled data and their PCs using irlba. We then found the PVEs for this data, and we are also going to use 4 PCs because the elbow is located there.
 
-
-```{r}
+```{r echo=FALSE}
 # create centered and unscaled data
 brca_sub_unscaled_centered <- scale(as.matrix(brca_sub), center = T, scale = F)
 # only calculate first few components using SVD by irlba()
@@ -734,12 +732,12 @@ plot(pve_apx, type="b", pch = 19, frame = FALSE)
 pve_apx
 ```
 
+We now plot the PC1 and PC2 of both datasets. Start w/ scaled data:
 
-We now plot the PC1 and PC2 of both datasets.
-Start w/ scaled data:
-
-```{r}
+```{r echo=FALSE}
 # get pc score for scaled
+brca_sub_scaled_centered <- scale(as.matrix(brca_sub), center = T, scale = T)
+svd_ret <- irlba::irlba(brca_sub_scaled_centered, nv = 10)
 pc_score_scaled <- brca_sub_scaled_centered %*% svd_ret$v[, 1:4] #from PCA formula
 pc_score_scaled <- (svd_ret$u[, 1:4])*(svd_ret$d[1:4])  # from svd 
 
@@ -755,8 +753,9 @@ names(brca_sub_kmeans_scaled_centered)
 table(brca_subtype, brca_sub_kmeans_scaled_centered$cluster)
 ```
 
-Now for unscaled data: 
-```{r}
+Now for unscaled data:
+
+```{r echo=FALSE}
 # get pc score for unscaled
 pc_score_unscaled <- brca_sub_unscaled_centered %*% svd_ret_unscaled$v[, 1:4] #from PCA formula
 pc_score_unscaled <- (svd_ret_unscaled$u[, 1:4])*(svd_ret_unscaled$d[1:4])  # from svd 
@@ -809,14 +808,13 @@ gridExtra::grid.arrange(p1, p2, nrow=1)
 
 After plotting the PC2 vs. PC1 for the scaled and unscaled/scaled data, we see that the clusters for the unscaled data are less overlapping and more distinct than the scaled data.
 
-
 4.  Spectrum clustering: center but do not scale the data
 
     a)  Use the first 4 PCs of the centered and unscaled data and apply kmeans. Find a reasonable number of clusters using within sum of squared with the elbow rule.
 
 We plotted the WCSS for each value of k and we found, using the elbow rule, that the optimal number of clusters should be $k=4$.
 
-```{r}
+```{r echo=FALSE}
 # taken from class
 
 # function to compute total within-cluster sum of square 
@@ -828,7 +826,7 @@ wss <- function(df, k) {
 k.values <- 2:15
 
 # extract wss for 2-15 clusters using sapply 
-wss_values <- sapply(k.values, 
+wss_values <- sapply(k.values,
                      function(k) kmeans(brca_sub_unscaled_centered,
                                         centers = k)$tot.withinss)
 
@@ -840,11 +838,11 @@ plot(k.values, wss_values,
        ylab="Total within-clusters sum of squares")
 ```
 
+```         
+b)  Choose an optimal cluster number and apply kmeans. Compare the real sub-type and the clustering label as follows: Plot scatter plot of PC1 vs PC2. Use point color to indicate the true cancer type and point shape to indicate the clustering label. Plot the kmeans centroids with black dots. Summarize how good is clustering results compared to the real sub-type.
+```
 
-    b)  Choose an optimal cluster number and apply kmeans. Compare the real sub-type and the clustering label as follows: Plot scatter plot of PC1 vs PC2. Use point color to indicate the true cancer type and point shape to indicate the clustering label. Plot the kmeans centroids with black dots. Summarize how good is clustering results compared to the real sub-type.
-    
-    
-```{r}
+```{r echo=FALSE}
 # kmeans with the optimal 4 clusters
 kmean_ret1 <- kmeans(x=pc_score_unscaled, 4)
 
@@ -872,18 +870,20 @@ p1 +
   geom_label(data = centroids_df, aes(x = x, y = y, label = 1:4), color = "black", vjust = -1)
 ```
 
-```{r}
+```{r echo=FALSE}
 # discrepancy table 
 table(brca_subtype, kmean_ret1$cluster)
 ```
 
-  Compared the the actual sub-types, the third cluster is fairly differentiated, while clusters 1, 2, and 4 are of low quality because their sub-type distributions are not concentrated. 
-    
-    c)  Compare the clustering result from applying kmeans to the original data and the clustering result from applying kmeans to 4 PCs. Does PCA help in kmeans clustering? What might be the reasons if PCA helps?
-    
-  The sub-type distributions of the clusters after PCA are slightly more concentrated relative to the original data. PCA may be constructing some features that capture a greater amount of variance than the original features, hence the slightly more concentrated distributions.
-    
-```{r}
+Compared the the actual sub-types, the third cluster is fairly differentiated, while clusters 1, 2, and 4 are of low quality because their sub-type distributions are not concentrated.
+
+```         
+c)  Compare the clustering result from applying kmeans to the original data and the clustering result from applying kmeans to 4 PCs. Does PCA help in kmeans clustering? What might be the reasons if PCA helps?
+```
+
+The sub-type distributions of the clusters after PCA are slightly more concentrated relative to the original data. PCA may be constructing some features that capture a greater amount of variance than the original features, hence the slightly more concentrated distributions.
+
+```{r echo=FALSE}
 # the original clustering table
 # read in brca_sub_kmeans
 brca_sub_kmeans <- readRDS("./output/brca_kmeans.RDS")
@@ -894,9 +894,11 @@ table(brca_subtype, brca_sub_kmeans$cluster)
 table(brca_subtype, kmean_ret1$cluster)
 ```
 
-    d)  Now we have an x patient with breast cancer but with unknown sub-type. We have this patient's mRNA sequencing data. Project this x patient to the space of PC1 and PC2. (Hint: remember we remove some gene with no counts or no variablity, take log and centered, then find its PC1 to PC4 scores) Plot this patient in the plot in b) with a black dot as well. Calculate the Euclidean distance between this patient and each of the centroid of the cluster. (Don't forget the clusters are obtained by using 4 PC's) Can you tell which sub-type this patient might have?
+```         
+d)  Now we have an x patient with breast cancer but with unknown sub-type. We have this patient's mRNA sequencing data. Project this x patient to the space of PC1 and PC2. (Hint: remember we remove some gene with no counts or no variablity, take log and centered, then find its PC1 to PC4 scores) Plot this patient in the plot in b) with a black dot as well. Calculate the Euclidean distance between this patient and each of the centroid of the cluster. (Don't forget the clusters are obtained by using 4 PC's) Can you tell which sub-type this patient might have?
+```
 
-```{r}
+```{r echo=FALSE}
 x_patient <- fread("data/brca_x_patient.csv")
 
 # remove genes with 0 counts and no variability; previously computed and stored in sel_cols
@@ -910,7 +912,7 @@ x_patient <- (x_patient - colMeans(as.matrix(brca_sub)))
 x_patient[, 1:10]
 ```
 
-```{r}
+```{r echo=FALSE}
 # project the x_patient vector to the PC space
 U <- svd_ret_unscaled$v
 x_patient_projected <- x_patient %*% U
@@ -928,8 +930,7 @@ p1 +
   geom_point(data = x_patient_df, aes(x = x, y = y), color = "black", shape = 18, size = 10)
 ```
 
-
-```{r}
+```{r echo=FALSE}
 
 distances <- apply(centroids_df, 1, function(centroid) {
   sqrt(sum((centroid - x_patient_projected)^2))
@@ -939,7 +940,6 @@ distances
 
 We can see that the euclidean distance to the first cluster centroid is the smallest, so we predict that the x_patient has the Basal sub-type, since we see that it is in cluster 1.
 
-
 # Case Study: Fuel Efficiency in Automobiles
 
 What determines how fuel efficient a car is? Are Japanese cars more fuel efficient? To answer these questions we will build various linear models using the `Auto` dataset from the book `ISLR`. The original dataset contains information for about 400 different cars built in various years. To get the data, first install the package ISLR which has been done in the first R-chunk. The `Auto` dataset should be loaded automatically. Original data source is here: <https://archive.ics.uci.edu/ml/datasets/auto+mpg>
@@ -948,7 +948,7 @@ Get familiar with this dataset first. Tip: you can use the command `?ISLR::Auto`
 
 ## EDA
 
-```{r}
+```{r echo=FALSE}
 auto <- ISLR::Auto
 ?ISLR::Auto
 str(auto)
@@ -959,7 +959,8 @@ hist(auto$acceleration) # to check if there are some outliers
 ```
 
 a)  Explore the data, list the variables with clear definitions. Set each variable with its appropriate class. For example `origin` should be set as a factor.
-```{r}
+
+```{r echo=FALSE}
 # set origin, cylinders to factor
 auto$origin <- as.factor(auto$origin)
 auto$cylinders <- as.factor(auto$cylinders)
@@ -977,37 +978,33 @@ str(auto)
 summary(auto)
 
 ```
+
 The variables are:
 
-mpg (miles per gallon) - int: fuel efficiency metric
-cylinders - factor: number of cylinders in the car, 4-8
-displacement - int: engine displacement in cubic inches
-horsepower - int: the rate at which work is done by the car (power metric)
-weight - int: the weight of the car in lbs
-acceleration - num: time to accelerate from 0 to 60 mph in seconds
-year - num: the model year of the car, modulo 100
-origin - factor: either 1 American, 2 European, or 3 Japanese
+mpg (miles per gallon) - int: fuel efficiency metric cylinders - factor: number of cylinders in the car, 4-8 displacement - int: engine displacement in cubic inches horsepower - int: the rate at which work is done by the car (power metric) weight - int: the weight of the car in lbs acceleration - num: time to accelerate from 0 to 60 mph in seconds year - num: the model year of the car, modulo 100 origin - factor: either 1 American, 2 European, or 3 Japanese
 
 b)  How many cars are included in this data set?
 
 There are 392 cars included in this data set, each with 9 variables.
-```{r}
+
+```{r echo=FALSE}
 dim(auto)
 ```
 
-
 c)  EDA, focus on pairwise plots and summary statistics. Briefly summarize your findings and any peculiarities in the data.
-```{r}
+
+```{r echo=FALSE}
 summary(auto)
 auto <- subset(auto, !(cylinders == 3))
 auto2 <- subset(auto2, !(cylinders == 3))
 summary(auto)
 ```
+
 The data set said that the number of cylinders would be between 4-8, but there are 4 cars with 3 cylinders (so we remove these out of range cars). We expect cars to have an even number of cylinders but there are 3 cars with 5. We decided to keep these values because there are cars manufactured with 5 cylinders, but we note that they are abnormal. We also see an outlier in mpg, where the minimum is just 9. We see most cars are American, followed by some Japanese then some European. We have 304 different factor categories for name. The years are between '70 and '82. The car weights range from 1600 to 5140 lbs, with an average of 2804. There don't seem to be any crazy outliers in horsepower, displacement, or weight. We think that though some cars have higher accelerations, they are not worth removing from the set since they aren't too far off from the other data points.
 
-
 We see from the plot below that more recent cars have better fuel efficiency.
-```{r}
+
+```{r echo=FALSE}
 # Scatterplot of MPG vs Year
 ggplot(auto, aes(x = year, y = mpg)) +
   geom_point() +  
@@ -1016,7 +1013,8 @@ ggplot(auto, aes(x = year, y = mpg)) +
 ```
 
 From the plot below, we see a general positive trend between acceleration and MPG, but not too significant.
-```{r}
+
+```{r echo=FALSE}
 # Scatterplot of MPG versus acceleration
 ggplot(auto, aes(x = acceleration, y = mpg)) +
   geom_point() +  
@@ -1025,7 +1023,8 @@ ggplot(auto, aes(x = acceleration, y = mpg)) +
 ```
 
 From the plot below, we see a clear decreasing trend that implies that higher horsepower reduces MPG fuel efficiency.
-```{r}
+
+```{r echo=FALSE}
 # Scatterplot of MPG versus horsepower
 ggplot(auto, aes(x = horsepower, y = mpg)) +
   geom_point() +  
@@ -1035,7 +1034,7 @@ ggplot(auto, aes(x = horsepower, y = mpg)) +
 
 We see from the plot below that increased weight corresponds to decreased fuel efficiency for the car.
 
-```{r}
+```{r echo=FALSE}
 # Scatterplot of MPG versus weight
 ggplot(auto, aes(x = weight, y = mpg)) +
   geom_point() +  
@@ -1043,9 +1042,9 @@ ggplot(auto, aes(x = weight, y = mpg)) +
   theme_minimal() 
 ```
 
-
 We see from the plot below that more cylinders correspond to lower MPG's (lower fuel efficiency) on average.
-```{r}
+
+```{r echo=FALSE}
 # Plot MPG versus number of cylinders
 ggplot(auto, aes(x = as.factor(cylinders), y = mpg)) +
   geom_boxplot() +  
@@ -1053,9 +1052,9 @@ ggplot(auto, aes(x = as.factor(cylinders), y = mpg)) +
   theme_minimal() 
 ```
 
-
 We see from the plot below that the cars with the higheest fuel efficiency are Japanese cars, followed by European, then American.
-```{r}
+
+```{r echo=FALSE}
 # Plot MPG versus origin in boxplot
 ggplot(auto, aes(x = as.factor(origin), y = mpg)) +
   geom_boxplot() + 
@@ -1063,15 +1062,13 @@ ggplot(auto, aes(x = as.factor(origin), y = mpg)) +
   theme_minimal() 
 ```
 
-
-
 ## What effect does `time` have on `MPG`?
 
 a)  Start with a simple regression of `mpg` vs. `year` and report R's `summary` output. Is `year` a significant variable at the .05 level? State what effect `year` has on `mpg`, if any, according to this model.
 
-After running a linear regression of mpg vs year, we see that there is a positive relationship between year and fuel efficiency. Based on the summary of our fit, we see a p-value of <2e-16, which suggests that at the 0.05 level, year IS a significant factor on mpg. Higher year implies higher mpg. We see a beta value of 1.1977.
+After running a linear regression of mpg vs year, we see that there is a positive relationship between year and fuel efficiency. Based on the summary of our fit, we see a p-value of \<2e-16, which suggests that at the 0.05 level, year IS a significant factor on mpg. Higher year implies higher mpg. We see a beta value of 1.1977.
 
-```{r}
+```{r echo=FALSE}
 # run regression with MPG vs year
 mpg_lm1 <- lm(mpg ~ year, data = auto) 
 summary(mpg_lm1)
@@ -1085,8 +1082,9 @@ geom_hline(aes(yintercept = mean(mpg)), color = "red")
 
 b)  Add `horsepower` on top of the variable `year` to your linear model. Is `year` still a significant variable at the .05 level? Give a precise interpretation of the `year`'s effect found here.
 
-Based on the summary of our lm for year and horsepower, we see that the p-value is still less than alpha = 0.05. It is <2e-16, suggesting that year IS still a significant variable on mpg. Our precise interpretation of year's effect is that its beta value is 0.61917, which implies that a single unit increase in year increases the mpg by 0.61917. Since we have such a low p-value, this disproves the null hypothesis that year doesn't impact mpg.
-```{r}
+Based on the summary of our lm for year and horsepower, we see that the p-value is still less than alpha = 0.05. It is \<2e-16, suggesting that year IS still a significant variable on mpg. Our precise interpretation of year's effect is that its beta value is 0.61917, which implies that a single unit increase in year increases the mpg by 0.61917. Since we have such a low p-value, this disproves the null hypothesis that year doesn't impact mpg.
+
+```{r echo=FALSE}
 # run regression with MPG vs year and horsepower
 mpg_lm2 <- lm(mpg ~ year + horsepower, data = auto) 
 summary(mpg_lm2)
@@ -1094,11 +1092,11 @@ summary(mpg_lm2)
 
 c)  The two 95% CI's for the coefficient of year differ among (a) and (b). How would you explain the difference to a non-statistician?
 
-To find the 95% CI for the coefficient of the year between (a) and (b) we do +/- 2 x the standard error for year. For (a), this would be 1.1977 +/- 2 * 0.0886, and for (b) it would be 0.61917 +/- 2 * 0.06690. In the second case, we have tighter range/bound for our 95% confidence interval, meaning we are more certain on our estimate for the beta value of year with a 95% confidence. In the first case, we have a higher estimate, and thus the range of values that we believe beta to be in have higher values. In both cases, since we have a very low p-value, we know that year does in fact have an impact on mpg in our linear regression. 
+To find the 95% CI for the coefficient of the year between (a) and (b) we do +/- 2 x the standard error for year. For (a), this would be 1.1977 +/- 2 \* 0.0886, and for (b) it would be 0.61917 +/- 2 \* 0.06690. In the second case, we have tighter range/bound for our 95% confidence interval, meaning we are more certain on our estimate for the beta value of year with a 95% confidence. In the first case, we have a higher estimate, and thus the range of values that we believe beta to be in have higher values. In both cases, since we have a very low p-value, we know that year does in fact have an impact on mpg in our linear regression.
 
 d)  Create a model with interaction by fitting `lm(mpg ~ year * horsepower)`. Is the interaction effect significant at .05 level? Explain the year effect (if any).
 
-As we see from the summary of the fit with interaction below the interactio effect IS significant at the 0.05 level, since we see very small p-values of <2e-16. Year alone still does have an effect, since the beta value is 2.16e+00, so there is a positive relationship where if year increases by a unit, then mpg increases this much. We also see that in terms of interaction, we see a negative value of -1.60e-02.
+As we see from the summary of the fit with interaction below the interactio effect IS significant at the 0.05 level, since we see very small p-values of \<2e-16. Year alone still does have an effect, since the beta value is 2.16e+00, so there is a positive relationship where if year increases by a unit, then mpg increases this much. We also see that in terms of interaction, we see a negative value of -1.60e-02.
 
 ```{r results=TRUE}
 fit.with.interaction <- lm(mpg ~ year * horsepower, auto)
@@ -1111,9 +1109,9 @@ Remember that the same variable can play different roles! Take a quick look at t
 
 a)  Fit a model that treats `cylinders` as a continuous/numeric variable. Is `cylinders` significant at the 0.01 level? What effect does `cylinders` play in this model?
 
-The following is a linear model of mpg vs cylinders as a numeric variable. The p-value is very small, <2e-16, which suggests that cylinders is significant at the 0.01 level. Specifically, the beta value is -3.558, which suggests that increased number of cylinders by 1 unit on average implies decreased mpg by that amount on average.
+The following is a linear model of mpg vs cylinders as a numeric variable. The p-value is very small, \<2e-16, which suggests that cylinders is significant at the 0.01 level. Specifically, the beta value is -3.558, which suggests that increased number of cylinders by 1 unit on average implies decreased mpg by that amount on average.
 
-```{r}
+```{r echo=FALSE}
 # run regression with MPG vs cylinders as numeric
 mpg_lm3 <- lm(mpg ~ cylinders, data = auto2) 
 summary(mpg_lm3)
@@ -1142,8 +1140,7 @@ group_by(cylinders) %>%
 ggplot(auto) + geom_boxplot(aes(x = cylinders, y = mpg))
 ```
 
-
-```{r}
+```{r echo=FALSE}
 # run regression with MPG vs cylinders as categorical
 mpg_lm4 <- lm(mpg ~ cylinders, data = auto) 
 summary(mpg_lm4)
@@ -1156,24 +1153,23 @@ ggplot(auto, aes(x = cylinders, y = mpg)) +
 geom_hline(aes(yintercept = mean(mpg)), color = "red") 
 ```
 
-
 ```{r, results=T}
 Anova(mpg_lm4)
 ```
-We can see that there are p-values that are very small, <2e-16, such as in cylinders6 and cylinders8, as well as in the Anova test, which suggests that these cylinders categories do have a significant effect on mpg. We see the biggest magnitude beta values for cylinders8, followed by cylinders6. These are negative value, -14 and -9 respectively, suggesting that more cylinders implies less fuel efficiency.
+
+We can see that there are p-values that are very small, \<2e-16, such as in cylinders6 and cylinders8, as well as in the Anova test, which suggests that these cylinders categories do have a significant effect on mpg. We see the biggest magnitude beta values for cylinders8, followed by cylinders6. These are negative value, -14 and -9 respectively, suggesting that more cylinders implies less fuel efficiency.
 
 c)  What are the fundamental differences between treating `cylinders` as a continuous and categorical variable in your models?
 
-When we treat cylinders as a continuous variable, we see one beta value returned by our lm model, whereas if we treat it as a categorical variable, we get separate beta values for each category, where some categories have greater magnitudes (such as cylinders8), suggesting a stronger relationship for these specific categories. Treating "cylinders" as continuous assumes a linear relationship and may not capture potential non-linear relationships or differences in the effect of each additional cylinder. When we treat cylinders as a categorical variable, we see lower RSE and higher R^2 values. We overall thus think that treating it as a categorical variable is better.
+When we treat cylinders as a continuous variable, we see one beta value returned by our lm model, whereas if we treat it as a categorical variable, we get separate beta values for each category, where some categories have greater magnitudes (such as cylinders8), suggesting a stronger relationship for these specific categories. Treating "cylinders" as continuous assumes a linear relationship and may not capture potential non-linear relationships or differences in the effect of each additional cylinder. When we treat cylinders as a categorical variable, we see lower RSE and higher R\^2 values. We overall thus think that treating it as a categorical variable is better.
 
 d)  Can you test the null hypothesis: fit0: `mpg` is linear in `cylinders` vs. fit1: `mpg` relates to `cylinders` as a categorical variable at .01 level?
 
 We ran an anova analysis for the two different models, where fit0 is represented by mpg_lm3, and fit1 is represented by mpg_lm4. We see that our p-value is very small, 3.7e-06. Thus, at the 0.01 level, we can reject the null hypothesis. We thus think that we should treat cylinders as a categorical variable.
 
-```{r}
+```{r echo=FALSE}
 anova(mpg_lm3, mpg_lm4)  
 ```
-
 
 ## Results
 
@@ -1183,14 +1179,15 @@ a)  Describe the final model. Include diagnostic plots with particular focus on 
 
 For our final model, we are choosing to disregard acceleration, since as we see in the first part of this case, there isn't a very strong/clear relationship between acceleration and MPG. We include all of the other variables, since as our plots above show, there are clear relationships between all of the variables and MPG. We also chose to not include name since there are 304 categories, and we can't gain meaningful information about trends from this data (just about 5 cars in each name category).
 
-```{r}
+```{r echo=FALSE}
 # we see a very low R-squared, so we don't include acceleration in our final model
 fit.acceleration <- lm(mpg ~ acceleration, data = auto)
 summary(fit.acceleration)
 ```
-Thus, our final model includes the variables year, cylinders (as a categorical variable), displacement, weight, horsepower, and origin. We use interactions for year and origin, since we thought the model year could have different effects in different countries. We can see that all of the p-values, with the except of a some of the cylinders categories, are very small, and certainly less than alpha = 0.01. This tells us that these variables do have significant impact on the mpg. If we look at the last line in the summary, F-statistic:  200 on 11 and 376 DF,  p-value: <2e-16. These metrics confirm that our regression model includes meaningful predictor variables.
 
-```{r}
+Thus, our final model includes the variables year, cylinders (as a categorical variable), displacement, weight, horsepower, and origin. We use interactions for year and origin, since we thought the model year could have different effects in different countries. We can see that all of the p-values, with the except of a some of the cylinders categories, are very small, and certainly less than alpha = 0.01. This tells us that these variables do have significant impact on the mpg. If we look at the last line in the summary, F-statistic: 200 on 11 and 376 DF, p-value: \<2e-16. These metrics confirm that our regression model includes meaningful predictor variables.
+
+```{r echo=FALSE}
 # run regression with MPG vs other variables
 mpg_lm5 <- lm(mpg ~ year * origin + cylinders + displacement + weight + horsepower, data = auto) 
 summary(mpg_lm5)
@@ -1198,7 +1195,7 @@ summary(mpg_lm5)
 
 When we use Anova to test our model, we also see very small p-values, but displacement has the highest, which indicates it might not be the best predictor among the others. Overall, our model seems to use good quality predictors.
 
-```{r}
+```{r echo=FALSE}
 Anova(mpg_lm5)
 ```
 
@@ -1212,16 +1209,13 @@ plot(mpg_lm5, 2) # qqplot
 summary(mpg_lm5)
 ```
 
-
 b)  Summarize the effects found.
 
 Our lm model shows many significant effects on mpg based on the provided coefficients in the table. The intercept term indicates an estimated mpg of approximately 1.94. Year has a positive effect on mpg, with each additional year leading to an increase of approximately 0.52 mpg. Among the different cylinder counts, cars with 6 cylinders show the most substantial negative effect on mpg, with an estimated decrease of about 3.65 mpg compared to the reference category. Weight has a strong negative effect on mpg, with an estimated decrease of approximately 0.0055 mpg for each additional pound. Horsepower also negatively impacts mpg, with each additional unit of horsepower associated with a decrease of approximately 0.0364 mpg. There are also significant interaction effects between year and origin, indicating that the relationship between year and mpg varies across different origins. Overall, the model has a high adjusted R-squared value of 0.85, suggesting that it explains a good portion of the variance in the data.
 
-
-```{r}
+```{r echo=FALSE}
 summary(mpg_lm5)
 ```
-
 
 c)  Predict the `mpg` of the following car: A red car built in the US in 1983 that is 180 inches long, has eight cylinders, displaces 350 cu. inches, weighs 4000 pounds, and has a horsepower of 260. Also give a 95% CI for your prediction.
 
@@ -1240,7 +1234,7 @@ newcar
 predict(mpg_lm5, newcar, interval = "confidence", se.fit = TRUE) 
 ```
 
-Based on the prediction above with our final model, we can see that the prediction is 16.6 mpg +/- 2 * 1.31 for a 95% CI, which gives us lower and upper bounds of 14 and 19.2 mpg.
+Based on the prediction above with our final model, we can see that the prediction is 16.6 mpg +/- 2 \* 1.31 for a 95% CI, which gives us lower and upper bounds of 14 and 19.2 mpg.
 
 # Simple Regression through simulations (Optional)
 
